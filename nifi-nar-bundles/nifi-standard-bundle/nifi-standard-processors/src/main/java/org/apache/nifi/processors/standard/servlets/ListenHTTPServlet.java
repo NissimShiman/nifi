@@ -100,6 +100,7 @@ public class ListenHTTPServlet extends HttpServlet {
     private volatile ProcessContext processContext;
     private Pattern authorizedPattern;
     private Pattern headerPattern;
+    private Pattern attributePattern;
     private ConcurrentMap<String, FlowFileEntryTimeWrapper> flowFileMap;
     private StreamThrottler streamThrottler;
     private String basePath;
@@ -117,6 +118,7 @@ public class ListenHTTPServlet extends HttpServlet {
         this.processContext = (ProcessContext) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_PROCESS_CONTEXT_HOLDER);
         this.authorizedPattern = (Pattern) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_AUTHORITY_PATTERN);
         this.headerPattern = (Pattern) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_HEADER_PATTERN);
+        this.attributePattern = (Pattern) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_ATTRIBUTE_PATTERN);
         this.flowFileMap = (ConcurrentMap<String, FlowFileEntryTimeWrapper>) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_FLOWFILE_MAP);
         this.streamThrottler = (StreamThrottler) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_STREAM_THROTTLER);
         this.basePath = (String) context.getAttribute(ListenHTTP.CONTEXT_ATTRIBUTE_BASE_PATH);
@@ -298,6 +300,10 @@ public class ListenHTTPServlet extends HttpServlet {
                             hasMoreData.set(false);
                         } else {
                             attributes.putAll(unpackager.unpackageFlowFile(in, bos));
+
+                            if (attributePattern != null) {
+                                attributes.keySet().removeIf(attribute -> !attributePattern.matcher(attribute).matches());
+                            }
 
                             if (destinationIsLegacyNiFi) {
                                 if (attributes.containsKey("nf.file.name")) {
