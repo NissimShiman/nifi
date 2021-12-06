@@ -16,6 +16,14 @@
  */
 package org.apache.nifi.controller.service;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.nifi.components.ConfigVerificationResult;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.VersionedComponent;
 import org.apache.nifi.controller.ComponentNode;
@@ -24,15 +32,8 @@ import org.apache.nifi.controller.ControllerService;
 import org.apache.nifi.controller.LoggableComponent;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.nar.ExtensionManager;
-import org.apache.nifi.components.ConfigVerificationResult;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public interface ControllerServiceNode extends ComponentNode, VersionedComponent {
 
@@ -225,5 +226,9 @@ public interface ControllerServiceNode extends ComponentNode, VersionedComponent
     void setControllerServiceAndProxy(final LoggableComponent<ControllerService> implementation,
                                       final LoggableComponent<ControllerService> proxiedControllerService,
                                       final ControllerServiceInvocationHandler invocationHandler);
+
+    void setBulletinLevel(LogLevel valueOf);
+
+    LogLevel getBulletinLevel();
 
 }

@@ -441,7 +441,7 @@
         <profile>
             <id>minify-and-compress</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <activeByDefault>false</activeByDefault>
             </activation>
             <properties>
                 <canvas.filter>canvas-min.properties</canvas.filter>

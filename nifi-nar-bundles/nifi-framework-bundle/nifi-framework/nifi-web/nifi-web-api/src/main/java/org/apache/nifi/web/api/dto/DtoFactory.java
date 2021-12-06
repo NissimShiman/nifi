@@ -1630,6 +1630,7 @@ public final class DtoFactory {
         dto.setState(controllerServiceNode.getState().name());
         dto.setAnnotationData(controllerServiceNode.getAnnotationData());
         dto.setComments(controllerServiceNode.getComments());
+        dto.setBulletinLevel(controllerServiceNode.getBulletinLevel().name());
         dto.setPersistsState(controllerServiceNode.getControllerServiceImplementation().getClass().isAnnotationPresent(Stateful.class));
         dto.setRestricted(controllerServiceNode.isRestricted());
         dto.setDeprecated(controllerServiceNode.isDeprecated());

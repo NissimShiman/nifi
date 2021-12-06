@@ -1052,6 +1052,7 @@ public class StandardProcessGroupSynchronizer implements ProcessGroupSynchronize
             service.setAnnotationData(proposed.getAnnotationData());
             service.setComments(proposed.getComments());
             service.setName(proposed.getName());
+            service.setBulletinLevel(LogLevel.valueOf(proposed.getBulletinLevel()));
 
             final Map<String, String> properties = populatePropertiesMap(service, proposed.getProperties(), proposed.getPropertyDescriptors(), service.getProcessGroup());
             service.setProperties(properties, true);

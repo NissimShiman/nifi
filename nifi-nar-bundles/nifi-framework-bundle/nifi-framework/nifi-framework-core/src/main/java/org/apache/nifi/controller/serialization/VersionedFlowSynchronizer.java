@@ -64,6 +64,7 @@ import org.apache.nifi.groups.ComponentIdGenerator;
 import org.apache.nifi.groups.ComponentScheduler;
 import org.apache.nifi.groups.GroupSynchronizationOptions;
 import org.apache.nifi.groups.ProcessGroup;
+import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.parameter.Parameter;
 import org.apache.nifi.parameter.ParameterContext;
@@ -717,6 +718,7 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
             serviceNode.setName(versionedControllerService.getName());
             serviceNode.setAnnotationData(versionedControllerService.getAnnotationData());
             serviceNode.setComments(versionedControllerService.getComments());
+            serviceNode.setBulletinLevel(LogLevel.valueOf(versionedControllerService.getBulletinLevel()));
 
             final Map<String, String> decryptedProperties = decryptProperties(versionedControllerService.getProperties());
             serviceNode.setProperties(decryptedProperties);

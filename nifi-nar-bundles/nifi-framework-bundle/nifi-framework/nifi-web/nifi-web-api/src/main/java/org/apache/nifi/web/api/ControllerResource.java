@@ -754,6 +754,7 @@ public class ControllerResource extends ApplicationResource {
                     required = true
             ) final ControllerServiceEntity requestControllerServiceEntity) {
 
+        System.out.println("ControllerResource.java: inside /controller-services on java end for createControllerService()!");
         if (requestControllerServiceEntity == null || requestControllerServiceEntity.getComponent() == null) {
             throw new IllegalArgumentException("Controller service details must be specified.");
         }
@@ -816,7 +817,7 @@ public class ControllerResource extends ApplicationResource {
                     final Revision revision = getRevision(controllerServiceEntity, controllerService.getId());
                     final ControllerServiceEntity entity = serviceFacade.createControllerService(revision, null, controllerService);
                     controllerServiceResource.populateRemainingControllerServiceEntityContent(entity);
-
+System.out.println("ControllerResource - withWriteLock() - making ControllerServiceEntity. entity: " + entity.getComponent().getName());
                     // build the response
                     return generateCreatedResponse(URI.create(entity.getUri()), entity).build();
                 }

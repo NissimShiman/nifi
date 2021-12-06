@@ -17,13 +17,15 @@
 package org.apache.nifi.web.api.dto;
 
 import io.swagger.annotations.ApiModelProperty;
-import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentEntity;
 
-import javax.xml.bind.annotation.XmlType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.xml.bind.annotation.XmlType;
+
+import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentEntity;
 
 /**
  * A Controller Service that can be shared by other components
@@ -56,6 +58,23 @@ public class ControllerServiceDTO extends ComponentDTO {
 
     private Collection<String> validationErrors;
     private String validationStatus;
+    private String bulletinLevel;
+
+    /**
+     * @return the level at this this processor will report bulletins
+     */
+    @ApiModelProperty(
+            value = "The level at which the processor will report bulletins."
+    )
+    public String getBulletinLevel() {
+        return bulletinLevel;
+    }
+
+    public void setBulletinLevel(String bulletinLevel) {
+        this.bulletinLevel = bulletinLevel;
+    }
+
+
 
     /**
      * @return controller service name

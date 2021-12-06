@@ -207,6 +207,8 @@ public class ControllerServiceLoader {
         node.setName(dto.getName());
         node.setComments(dto.getComments());
         node.setVersionedComponentId(dto.getVersionedComponentId());
+        logger.error("ControllerServiceLoader - createControllerService() - actual bulletin: " + dto.getBulletinLevel());
+
         return node;
     }
 

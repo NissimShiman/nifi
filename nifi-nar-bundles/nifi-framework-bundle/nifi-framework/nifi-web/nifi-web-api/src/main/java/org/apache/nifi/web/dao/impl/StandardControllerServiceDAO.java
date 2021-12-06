@@ -16,7 +16,16 @@
  */
 package org.apache.nifi.web.dao.impl;
 
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.apache.nifi.bundle.BundleCoordinate;
+import org.apache.nifi.components.ConfigVerificationResult;
 import org.apache.nifi.components.ConfigurableComponent;
 import org.apache.nifi.components.state.Scope;
 import org.apache.nifi.components.state.StateMap;
@@ -33,11 +42,11 @@ import org.apache.nifi.controller.service.ControllerServiceState;
 import org.apache.nifi.controller.service.StandardConfigurationContext;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.logging.LogRepository;
 import org.apache.nifi.logging.repository.NopLogRepository;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.parameter.ParameterLookup;
-import org.apache.nifi.components.ConfigVerificationResult;
 import org.apache.nifi.processor.SimpleProcessLogger;
 import org.apache.nifi.util.BundleUtils;
 import org.apache.nifi.web.NiFiCoreException;
@@ -47,14 +56,6 @@ import org.apache.nifi.web.api.dto.ConfigVerificationResultDTO;
 import org.apache.nifi.web.api.dto.ControllerServiceDTO;
 import org.apache.nifi.web.dao.ComponentStateDAO;
 import org.apache.nifi.web.dao.ControllerServiceDAO;
-
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class StandardControllerServiceDAO extends ComponentDAO implements ControllerServiceDAO {
 
@@ -321,12 +322,16 @@ public class StandardControllerServiceDAO extends ComponentDAO implements Contro
             }
         }
 
+        System.out.println("StandardControllerServiceDAO - verifyUpdate()");
+        System.out.println("controllerServiceDTO.getBulletinLevel(): " + controllerServiceDTO.getBulletinLevel());
+
         boolean modificationRequest = false;
         if (isAnyNotNull(controllerServiceDTO.getName(),
                 controllerServiceDTO.getAnnotationData(),
                 controllerServiceDTO.getComments(),
                 controllerServiceDTO.getProperties(),
-                controllerServiceDTO.getBundle())) {
+                controllerServiceDTO.getBundle(),
+                controllerServiceDTO.getBulletinLevel())) {
             modificationRequest = true;
 
             // validate the request
@@ -356,6 +361,7 @@ public class StandardControllerServiceDAO extends ComponentDAO implements Contro
         final String annotationData = controllerServiceDTO.getAnnotationData();
         final String comments = controllerServiceDTO.getComments();
         final Map<String, String> properties = controllerServiceDTO.getProperties();
+        final String bulletinLevel = controllerServiceDTO.getBulletinLevel();
 
         controllerService.pauseValidationTrigger(); // avoid causing validation to be triggered multiple times
         try {
@@ -370,6 +376,9 @@ public class StandardControllerServiceDAO extends ComponentDAO implements Contro
             }
             if (isNotNull(properties)) {
                 controllerService.setProperties(properties);
+            }
+            if (isNotNull(bulletinLevel)) {
+                controllerService.setBulletinLevel(LogLevel.valueOf(bulletinLevel));
             }
         } finally {
             controllerService.resumeValidationTrigger();

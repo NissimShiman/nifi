@@ -463,6 +463,8 @@ public class StandardFlowManager extends AbstractFlowManager implements FlowMana
     public ControllerServiceNode createControllerService(final String type, final String id, final BundleCoordinate bundleCoordinate, final Set<URL> additionalUrls, final boolean firstTimeAdded,
                                                          final boolean registerLogObserver, final String classloaderIsolationKey) {
         // make sure the first reference to LogRepository happens outside of a NarCloseable so that we use the framework's ClassLoader
+      System.out.println("StandardFlowManager  createControllerService  - type, id: " + type  + ", " + id);
+
         final LogRepository logRepository = LogRepositoryFactory.getRepository(id);
         final ExtensionManager extensionManager = flowController.getExtensionManager();
         final ControllerServiceProvider controllerServiceProvider = flowController.getControllerServiceProvider();
@@ -485,9 +487,12 @@ public class StandardFlowManager extends AbstractFlowManager implements FlowMana
             .buildControllerService();
 
         LogRepositoryFactory.getRepository(serviceNode.getIdentifier()).setLogger(serviceNode.getLogger());
+//        System.out.println("StandardFlowManager  createControllerService  - can this just turn off bulletins for Controller Services?  yes, actually it does!");
+  //      System.out.println("StandardFlowManager  createControllerService  - serviceNode.getBulletinLevel():"  + serviceNode.getBulletinLevel());
+
         if (registerLogObserver) {
             // Register log observer to provide bulletins when reporting task logs anything at WARN level or above
-            logRepository.addObserver(StandardProcessorNode.BULLETIN_OBSERVER_ID, LogLevel.WARN, new ControllerServiceLogObserver(bulletinRepository, serviceNode));
+            logRepository.addObserver(StandardProcessorNode.BULLETIN_OBSERVER_ID, serviceNode.getBulletinLevel(), new ControllerServiceLogObserver(bulletinRepository, serviceNode));
         }
 
         if (firstTimeAdded) {

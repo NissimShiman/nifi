@@ -310,7 +310,7 @@
                 'bundle': controllerServiceBundle
             }
         };
-
+// first ever call to create controller service 
         // add the new controller service
         var addService = $.ajax({
             type: 'POST',

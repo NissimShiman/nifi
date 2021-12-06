@@ -16,6 +16,26 @@
  */
 package org.apache.nifi.controller.service;
 
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.annotation.behavior.Restricted;
 import org.apache.nifi.annotation.documentation.DeprecationNotice;
@@ -47,6 +67,8 @@ import org.apache.nifi.controller.VerifiableControllerService;
 import org.apache.nifi.controller.exception.ControllerServiceInstantiationException;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.logging.ComponentLog;
+import org.apache.nifi.logging.LogLevel;
+import org.apache.nifi.logging.LogRepositoryFactory;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.nar.InstanceClassLoader;
 import org.apache.nifi.nar.NarCloseable;
@@ -61,26 +83,6 @@ import org.apache.nifi.util.Tuple;
 import org.apache.nifi.util.file.classloader.ClassLoaderUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
 public class StandardControllerServiceNode extends AbstractComponentNode implements ControllerServiceNode {
 
@@ -98,6 +100,8 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
     private final Set<Tuple<ComponentNode, PropertyDescriptor>> referencingComponents = new HashSet<>();
     private volatile String comment;
     private volatile ProcessGroup processGroup;
+    private volatile LogLevel bulletinLevel = LogLevel.WARN;
+    public static final String BULLETIN_OBSERVER_ID = "bulletin-observer";
 
     private final AtomicBoolean active;
 
@@ -388,6 +392,7 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
         return this.active.get();
     }
 
+    @Override
     public boolean awaitEnabled(final long timePeriod, final TimeUnit timeUnit) throws InterruptedException {
         LOG.debug("Waiting up to {} {} for {} to be enabled", timePeriod, timeUnit, this);
         final boolean enabled = stateTransition.awaitStateOrInvalid(ControllerServiceState.ENABLED, timePeriod, timeUnit);
@@ -712,4 +717,19 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
     public ParameterLookup getParameterLookup() {
         return getParameterContext();
     }
+
+
+    @Override
+    public LogLevel getBulletinLevel() {
+        LOG.error("In StandardControllerServiceNode getBulletinLevel: " + bulletinLevel);
+        return bulletinLevel;
+    }
+
+    @Override
+    public synchronized void setBulletinLevel(final LogLevel level) {
+        LogRepositoryFactory.getRepository(getIdentifier()).setObservationLevel(BULLETIN_OBSERVER_ID, level);
+        LOG.error("In StandardControllerServiceNode setBulletinLevel: " + level);
+        this.bulletinLevel = level;
+    }
+
 }

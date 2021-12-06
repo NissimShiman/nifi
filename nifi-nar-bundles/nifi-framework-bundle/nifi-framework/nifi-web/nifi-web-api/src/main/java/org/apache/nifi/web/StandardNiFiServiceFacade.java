@@ -2226,6 +2226,14 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
 
     @Override
     public ProcessorEntity createProcessor(final Revision revision, final String groupId, final ProcessorDTO processorDTO) {
+        System.out.println("StandardNiFiServiceFacade createProcessor()");
+// Note: the following five lines DO WORK
+//        processorDTO.setName(processorDTO.getName() + "test");
+  //      ProcessorConfigDTO config = new ProcessorConfigDTO();
+    //    config.setComments("test comment");
+      //  config.setBulletinLevel("FATAL");
+        //processorDTO.setConfig(config);
+
         final RevisionUpdate<ProcessorDTO> snapshot = createComponent(
                 revision,
                 processorDTO,
@@ -2234,6 +2242,17 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                     awaitValidationCompletion(processor);
                     return dtoFactory.createProcessorDto(processor);
                 });
+
+        System.out.println("StandardNiFiServiceFacade createProcessor() - after createComponent() - persistance to flow.xml just occured");
+
+
+        if (processorDTO.getConfig() != null) {
+            System.out.println("StandardNiFiServiceFacade createProcessor() processorDTO.getConfig() != null");
+            if (processorDTO.getConfig().getBulletinLevel() != null) {
+                System.out.println("StandardNiFiServiceFacade createProcessor() processorDTO.getConfig().getBulletinLevel(): " + processorDTO.getConfig().getBulletinLevel());
+            }
+        }
+
 
         final ProcessorNode processor = processorDAO.getProcessor(processorDTO.getId());
         final PermissionsDTO permissions = dtoFactory.createPermissionsDto(processor);
@@ -2803,6 +2822,10 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         // request claim for component to be created... revision already verified (version == 0)
         final RevisionClaim claim = new StandardRevisionClaim(revision);
 
+ //       controllerServiceDTO.setName("StandardNiFiServiceFacade - createControllerService() - name: " + controllerServiceDTO.getName());
+//        controllerServiceDTO.setBulletinLevel("FATAL");
+
+
         final RevisionUpdate<ControllerServiceDTO> snapshot;
         if (groupId == null) {
             // update revision through revision manager
@@ -2810,9 +2833,30 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 // Unfortunately, we can not use the createComponent() method here because createComponent() wants to obtain the read lock
                 // on the group. The Controller Service may or may not have a Process Group (it won't if it's controller-scoped).
                 final ControllerServiceNode controllerService = controllerServiceDAO.createControllerService(controllerServiceDTO);
-                controllerFacade.save();
+
+//                System.out.println("StandardNiFiServiceFacade - createControllerService() - controllerServiceDTO.getName()3: " + controllerServiceDTO.getName());
+
+                System.out.println("groupid is null StandardNiFiServiceFacade - createControllerService() - controllerService.getName()3: " + controllerService.getName());
+                System.out.println("groupid is null StandardNiFiServiceFacade - createControllerService() - controllerService.getBulletinLevel()3: " + controllerService.getBulletinLevel());
+
+                System.out.println("groupid is null StandardNiFiServiceFacade - createControllerService() - controllerServiceDTO.getBulletinLevel() : " + controllerServiceDTO.getBulletinLevel());
+
+   /*
+    * Works to print out prop values
+    *   Map<PropertyDescriptor, PropertyConfiguration> props = controllerService.getProperties();
+                for (PropertyDescriptor desc: props.keySet()) {
+
+                    System.out.println("prop descriptor  displayName: "  + desc.getDisplayName());
+                    System.out.println("prop descriptor name: "  + desc.getName());
+                }
+*/
+                 controllerFacade.save();
+
 
                 awaitValidationCompletion(controllerService);
+
+                System.out.println("StandardNiFiServiceFacade - createControllerService() save in flow.xml  has just  occured.  This is where NONE used to be set");
+
                 final ControllerServiceDTO dto = dtoFactory.createControllerServiceDto(controllerService);
 
                 final FlowModification lastMod = new FlowModification(revision.incrementRevision(revision.getClientId()), user.getIdentity());
@@ -2821,9 +2865,11 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         } else {
             snapshot = revisionManager.updateRevision(claim, user, () -> {
                 final ControllerServiceNode controllerService = controllerServiceDAO.createControllerService(controllerServiceDTO);
+                System.out.println("groupid is not null StandardNiFiServiceFacade - createControllerService(): " + controllerServiceDTO.getBulletinLevel());
                 controllerFacade.save();
 
                 awaitValidationCompletion(controllerService);
+                System.out.println("StandardNiFiServiceFacade - createControllerService() I believe save has just occured - check to see");
                 final ControllerServiceDTO dto = dtoFactory.createControllerServiceDto(controllerService);
 
                 final FlowModification lastMod = new FlowModification(revision.incrementRevision(revision.getClientId()), user.getIdentity());
@@ -2832,6 +2878,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         }
 
         final ControllerServiceNode controllerService = controllerServiceDAO.getControllerService(controllerServiceDTO.getId());
+        controllerService.setComments("test comment3");
         final PermissionsDTO permissions = dtoFactory.createPermissionsDto(controllerService);
         final PermissionsDTO operatePermissions = dtoFactory.createPermissionsDto(new OperationAuthorizable(controllerService));
         final List<BulletinDTO> bulletins = dtoFactory.createBulletinDtos(bulletinRepository.findBulletinsForSource(controllerServiceDTO.getId()));

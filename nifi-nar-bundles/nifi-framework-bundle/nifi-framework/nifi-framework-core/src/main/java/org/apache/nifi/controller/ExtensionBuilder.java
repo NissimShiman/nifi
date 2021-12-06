@@ -406,6 +406,7 @@ public class ExtensionBuilder {
             final ControllerServiceNode serviceNode = new StandardControllerServiceNode(originalLoggableComponent, proxiedLoggableComponent, invocationHandler,
                     identifier, validationContextFactory, serviceProvider, componentVarRegistry, reloadComponent, extensionManager, validationTrigger);
             serviceNode.setName(rawClass.getSimpleName());
+            logger.error("ExtensionBuilder - createControllerService() - bulletin after creation: " + serviceNode.getBulletinLevel());
 
             invocationHandler.setServiceNode(serviceNode);
             return serviceNode;
