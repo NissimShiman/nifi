@@ -51,13 +51,13 @@
                         <div id="controller-service-compatible-apis" class="setting-field"></div>
                     </div>
                     <div class="setting">
-                        <div class="bulletin-setting1">
+                        <div class="bulletin-setting">
                             <div class="setting-name">
                                 Bulletin level
                                 <div class="fa fa-question-circle" alt="Info" title="The level at which this controller service will generate bulletins."></div>
                             </div>
                             <div class="controller-service-editable setting-field">
-                                <div id="bulletin-level-combo1"></div>
+                                <div id="controller-service-bulletin-level-combo"></div>
                             </div>
                             <div class="controller-service-read-only setting-field hidden">
                                 <span id="read-only-controller-service-bulletin-level"></span>

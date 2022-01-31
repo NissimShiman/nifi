@@ -57,7 +57,7 @@
     max-width: 280px;
 }
 
-div.concurrently-schedulable-tasks-setting, div.scheduling-period-setting, div.penalty-duration-setting, div.yield-duration-setting, div.scheduling-strategy-setting, div.execution-node-setting, div.bulletin-setting, div.bulletin-setting1  {
+div.concurrently-schedulable-tasks-setting, div.scheduling-period-setting, div.penalty-duration-setting, div.yield-duration-setting, div.scheduling-strategy-setting, div.execution-node-setting, div.bulletin-setting  {
     float: left;
     width: 40%;
 }

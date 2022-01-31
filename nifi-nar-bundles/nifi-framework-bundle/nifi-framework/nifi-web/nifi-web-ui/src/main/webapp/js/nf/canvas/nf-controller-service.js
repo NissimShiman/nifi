@@ -99,7 +99,7 @@
             return true;
         }
         
-        if ($('#bulletin-level-combo1').combo('getSelectedOption').value !== (entity.component['bulletinLevel'] + '')) {
+        if ($('#controller-service-bulletin-level-combo').combo('getSelectedOption').value !== (entity.component['bulletinLevel'] + '')) {
             return true;
         }
 
@@ -118,7 +118,7 @@
         var controllerServiceDto = {};
         controllerServiceDto['id'] = $('#controller-service-id').text();
         controllerServiceDto['name'] = $('#controller-service-name').val();
-        controllerServiceDto['bulletinLevel'] = $('#bulletin-level-combo1').combo('getSelectedOption').value;
+        controllerServiceDto['bulletinLevel'] = $('#controller-service-bulletin-level-combo').combo('getSelectedOption').value;
         controllerServiceDto['comments'] = $('#controller-service-comments').val();
 
         // set the properties
@@ -1862,7 +1862,7 @@
             });
             
             // initialize the bulletin combo
-            $('#bulletin-level-combo1').combo({
+            $('#controller-service-bulletin-level-combo').combo({
                 options: [{
                     text: 'DEBUG',
                     value: 'DEBUG'
@@ -2029,7 +2029,7 @@
                 $('#controller-service-comments').val(controllerService['comments']);
                 
                 // select the appropriate bulletin level
-                $('#bulletin-level-combo1').combo('setSelectedOption', {
+                $('#controller-service-bulletin-level-combo').combo('setSelectedOption', {
                     value: controllerService['bulletinLevel']
                 });
 
