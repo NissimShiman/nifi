@@ -23,6 +23,7 @@ import org.apache.nifi.controller.serialization.FlowEncodingVersion;
 import org.apache.nifi.controller.serialization.FlowFromDOMFactory;
 import org.apache.nifi.encrypt.PropertyEncryptor;
 import org.apache.nifi.groups.ProcessGroup;
+import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.reporting.BulletinRepository;
 import org.apache.nifi.util.BundleUtils;
 import org.apache.nifi.util.DomUtils;
@@ -175,6 +176,7 @@ public class ControllerServiceLoader {
                 controllerService.getBundleCoordinate(), Collections.emptySet(), false, true, null);
         clone.setName(controllerService.getName());
         clone.setComments(controllerService.getComments());
+        clone.setBulletinLevel(controllerService.getBulletinLevel());
 
         if (controllerService.getProperties() != null) {
             Map<String,String> properties = new HashMap<>();
@@ -206,6 +208,7 @@ public class ControllerServiceLoader {
         final ControllerServiceNode node = flowController.getFlowManager().createControllerService(dto.getType(), dto.getId(), coordinate, Collections.emptySet(), false, true, null);
         node.setName(dto.getName());
         node.setComments(dto.getComments());
+        node.setBulletinLevel(LogLevel.valueOf(dto.getBulletinLevel()));
         node.setVersionedComponentId(dto.getVersionedComponentId());
         logger.error("ControllerServiceLoader - createControllerService() - actual bulletin: " + dto.getBulletinLevel());
 

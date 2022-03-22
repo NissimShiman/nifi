@@ -239,6 +239,7 @@ public class StandardFlowSnippet implements FlowSnippet {
                 serviceNode.setAnnotationData(controllerServiceDTO.getAnnotationData());
                 serviceNode.setComments(controllerServiceDTO.getComments());
                 serviceNode.setName(controllerServiceDTO.getName());
+                serviceNode.setBulletinLevel(LogLevel.valueOf(controllerServiceDTO.getBulletinLevel()));
                 if (!topLevel) {
                     serviceNode.setVersionedComponentId(controllerServiceDTO.getVersionedComponentId());
                 }

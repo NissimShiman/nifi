@@ -4120,6 +4120,7 @@ public final class DtoFactory {
         copy.setId(original.getId());
         copy.setParentGroupId(original.getParentGroupId());
         copy.setName(original.getName());
+        copy.setBulletinLevel(original.getBulletinLevel());
         copy.setProperties(copy(original.getProperties()));
         copy.setReferencingComponents(copy(original.getReferencingComponents()));
         copy.setState(original.getState());

@@ -491,7 +491,6 @@ public class StandardFlowManager extends AbstractFlowManager implements FlowMana
   //      System.out.println("StandardFlowManager  createControllerService  - serviceNode.getBulletinLevel():"  + serviceNode.getBulletinLevel());
 
         if (registerLogObserver) {
-            // Register log observer to provide bulletins when reporting task logs anything at WARN level or above
             logRepository.addObserver(StandardProcessorNode.BULLETIN_OBSERVER_ID, serviceNode.getBulletinLevel(), new ControllerServiceLogObserver(bulletinRepository, serviceNode));
         }
 

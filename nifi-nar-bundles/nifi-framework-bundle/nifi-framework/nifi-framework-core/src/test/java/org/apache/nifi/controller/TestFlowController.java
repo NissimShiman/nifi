@@ -1147,6 +1147,7 @@ public class TestFlowController {
         csDto.setState(controllerServiceNode.getState().name());
         csDto.setAnnotationData(controllerServiceNode.getAnnotationData());
         csDto.setComments(controllerServiceNode.getComments());
+        csDto.setBulletinLevel(controllerServiceNode.getBulletinLevel().name());
         csDto.setPersistsState(controllerServiceNode.getControllerServiceImplementation().getClass().isAnnotationPresent(Stateful.class));
         csDto.setRestricted(controllerServiceNode.isRestricted());
         csDto.setExtensionMissing(controllerServiceNode.isExtensionMissing());
@@ -1178,6 +1179,7 @@ public class TestFlowController {
         csDto.setState(controllerServiceNode.getState().name());
         csDto.setAnnotationData(controllerServiceNode.getAnnotationData());
         csDto.setComments(controllerServiceNode.getComments());
+        csDto.setBulletinLevel(controllerServiceNode.getBulletinLevel().name());
         csDto.setPersistsState(controllerServiceNode.getControllerServiceImplementation().getClass().isAnnotationPresent(Stateful.class));
         csDto.setRestricted(controllerServiceNode.isRestricted());
         csDto.setExtensionMissing(controllerServiceNode.isExtensionMissing());
