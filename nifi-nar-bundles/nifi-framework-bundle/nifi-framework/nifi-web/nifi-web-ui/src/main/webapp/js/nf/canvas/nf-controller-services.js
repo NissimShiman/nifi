@@ -870,6 +870,7 @@
 
             var hasErrors = !nfCommon.isEmpty(dataContext.component.validationErrors);
             var hasBulletins = !nfCommon.isEmpty(dataContext.bulletins);
+            var hasComments = !nfCommon.isBlank(dataContext.component.comments);
 
             if (hasErrors) {
                 markup += '<div class="pointer has-errors fa fa-warning"></div>';
@@ -878,6 +879,12 @@
             if (hasBulletins) {
                 markup += '<div class="has-bulletins fa fa-sticky-note-o"></div>';
             }
+            
+            if (hasComments) {
+//            	markup += '<path class="has-bulletins fa fa-home fa-fw" transform="translate(30,30)" d="m5,5 l0,18 l-8,20 z"></path>';
+            	markup += '<path class="has-bulletins" transform="translate(30,30)" d="m0,0 l0,8 l-8,0 z"></path>';
+
+            } 
 
             if (hasErrors || hasBulletins) {
                 markup += '<span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
@@ -1225,6 +1232,7 @@
      * @param {jQuery} serviceTable
      */
     var loadControllerServices = function (controllerServicesUri, serviceTable) {
+    	//  this is it
         return $.ajax({
             type: 'GET',
             url: controllerServicesUri,
