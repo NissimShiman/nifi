@@ -882,7 +882,8 @@
             
             if (hasComments) {
 //            	markup += '<path class="has-bulletins fa fa-home fa-fw" transform="translate(30,30)" d="m5,5 l0,18 l-8,20 z"></path>';
-            	markup += '<path class="has-bulletins" transform="translate(30,30)" d="m0,0 l0,8 l-8,0 z"></path>';
+            	markup += '<svg><path class="has-bulletins" transform="translate(62,13)" d="m0,0 l0,8 l-8,0 z"></path></svg>';
+ //           	markup += '<path class="has-bulletins fa fa-home fa-fw"></path>';
 
             } 
 
