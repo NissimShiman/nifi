@@ -864,8 +864,9 @@
             if (!dataContext.permissions.canRead) {
                 return '';
             }
-
+//            var markup ='<svg>';
             // always include a button to view the usage
+//            var markup = '<svg><g title="Usage" class="pointer controller-service-usage fa fa-book"></div>';
             var markup = '<div title="Usage" class="pointer controller-service-usage fa fa-book"></div>';
 
             var hasErrors = !nfCommon.isEmpty(dataContext.component.validationErrors);
@@ -882,15 +883,15 @@
             
             if (hasComments) {
 //            	markup += '<path class="has-bulletins fa fa-home fa-fw" transform="translate(30,30)" d="m5,5 l0,18 l-8,20 z"></path>';
-            	markup += '<svg><path class="has-bulletins" transform="translate(62,13)" d="m0,0 l0,8 l-8,0 z"></path></svg>';
- //           	markup += '<path class="has-bulletins fa fa-home fa-fw"></path>';
+ //           	markup += '<svg><path class="has-comments" transform="translate(62,13)" d="m0,0 l0,8 l-8,0 z"><title>dataContext.component.comments</title></path></svg>';
+            	markup += '<div class="pointer has-comments fa fa-comment"></div>';
 
             } 
 
-            if (hasErrors || hasBulletins) {
+            if (hasErrors || hasBulletins || hasComments) {
                 markup += '<span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
             }
-
+//            markup +='</svg>';
             return markup;
         };
 
@@ -1223,6 +1224,39 @@
                         }));
                 }
             }
+
+            var commentsIcon = $(this).find('div.has-comments');
+            if (commentsIcon.length && !commentsIcon.data('qtip')) {
+ //           	if (true) {
+                var serviceId = $(this).find('span.row-id').text();
+
+                // get the service item
+                var controllerServiceEntity = controllerServicesData.getItemById(serviceId);
+
+                // format the tooltip
+          //      var comments  = nfCommon.getFormattedBulletins(controllerServiceEntity.component.comments);
+         //       var tooltip = comments; //nfCommon.formatUnorderedList(bulletins);
+                
+                var tooltip = controllerServiceEntity.component.comments;
+
+                // show the tooltip
+                if (nfCommon.isDefinedAndNotNull(tooltip)) {
+                    commentsIcon.qtip($.extend({},
+                        nfCommon.config.tooltipConfig,
+                        {
+                            content: tooltip,
+                            position: {
+                                target: 'mouse',
+                                viewport: $('#shell-container'),
+                                adjust: {
+                                    x: 8,
+                                    y: 8,
+                                    method: 'flipinvert flipinvert'
+                                }
+                            }
+                        }));
+                }
+            }  
         });
     };
 
@@ -1252,6 +1286,7 @@
 
             nfCommon.cleanUpTooltips(serviceTable, 'div.has-errors');
             nfCommon.cleanUpTooltips(serviceTable, 'div.has-bulletins');
+            nfCommon.cleanUpTooltips(serviceTable, 'div.has-comments');
 
             var controllerServicesGrid = serviceTable.data('gridInstance');
             var controllerServicesData = controllerServicesGrid.getData();
