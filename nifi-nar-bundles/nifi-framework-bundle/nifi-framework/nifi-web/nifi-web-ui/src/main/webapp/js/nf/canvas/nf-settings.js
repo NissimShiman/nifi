@@ -1020,6 +1020,7 @@
 
             var hasErrors = !nfCommon.isEmpty(dataContext.component.validationErrors);
             var hasBulletins = !nfCommon.isEmpty(dataContext.bulletins);
+            var hasComments = !nfCommon.isBlank(dataContext.component.comments);
 
             if (hasErrors) {
                 markup += '<div class="pointer has-errors fa fa-warning" ></div>';
@@ -1029,7 +1030,11 @@
                 markup += '<div class="has-bulletins fa fa-sticky-note-o"></div>';
             }
 
-            if (hasErrors || hasBulletins) {
+            if (hasComments) {
+            	markup += '<div class="pointer has-comments fa fa-comment"></div>';
+            }
+
+            if (hasErrors || hasBulletins || hasComments) {
                 markup += '<span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.component.id) + '</span>';
             }
 
@@ -1122,8 +1127,8 @@
                 resizable: false,
                 formatter: moreReportingTaskDetails,
                 sortable: true,
-                width: 90,
-                maxWidth: 90,
+                width: 100,
+                maxWidth: 100,
                 toolTip: 'Sorts based on presence of bulletins'
             },
             {
@@ -1296,6 +1301,35 @@
                 // show the tooltip
                 if (nfCommon.isDefinedAndNotNull(tooltip)) {
                     bulletinIcon.qtip($.extend({},
+                        nfCommon.config.tooltipConfig,
+                        {
+                            content: tooltip,
+                            position: {
+                                target: 'mouse',
+                                viewport: $('#shell-container'),
+                                adjust: {
+                                    x: 8,
+                                    y: 8,
+                                    method: 'flipinvert flipinvert'
+                                }
+                            }
+                        }));
+                }
+            }
+
+            var commentsIcon = $(this).find('div.has-comments');
+            if (commentsIcon.length && !commentsIcon.data('qtip')) {
+                 var taskId = $(this).find('span.row-id').text();
+
+                // get the task item
+                var reportingTaskEntity = reportingTasksData.getItemById(taskId);
+
+                // format the tooltip
+                var tooltip = reportingTaskEntity.component.comments;
+
+                // show the tooltip
+                if (nfCommon.isDefinedAndNotNull(tooltip)) {
+                    commentsIcon.qtip($.extend({},
                         nfCommon.config.tooltipConfig,
                         {
                             content: tooltip,
@@ -1637,6 +1671,7 @@
             var reportingTasksElement = $('#reporting-tasks-table');
             nfCommon.cleanUpTooltips(reportingTasksElement, 'div.has-errors');
             nfCommon.cleanUpTooltips(reportingTasksElement, 'div.has-bulletins');
+            nfCommon.cleanUpTooltips(reportingTasksElement, 'div.has-comments');
 
             var reportingTasksGrid = reportingTasksElement.data('gridInstance');
             var reportingTasksData = reportingTasksGrid.getData();
