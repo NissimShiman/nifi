@@ -869,9 +869,15 @@
 //            var markup = '<svg><g title="Usage" class="pointer controller-service-usage fa fa-book"></div>';
             var markup = '<div title="Usage" class="pointer controller-service-usage fa fa-book"></div>';
 
+            var hasComments = !nfCommon.isBlank(dataContext.component.comments);
             var hasErrors = !nfCommon.isEmpty(dataContext.component.validationErrors);
             var hasBulletins = !nfCommon.isEmpty(dataContext.bulletins);
-            var hasComments = !nfCommon.isBlank(dataContext.component.comments);
+
+            if (hasComments) {
+//            	markup += '<path class="has-bulletins fa fa-home fa-fw" transform="translate(30,30)" d="m5,5 l0,18 l-8,20 z"></path>';
+ //           	markup += '<svg><path class="has-comments" transform="translate(62,13)" d="m0,0 l0,8 l-8,0 z"><title>dataContext.component.comments</title></path></svg>';
+            	markup += '<div class="pointer has-comments fa fa-comment"></div>';
+            }
 
             if (hasErrors) {
                 markup += '<div class="pointer has-errors fa fa-warning"></div>';
@@ -880,15 +886,8 @@
             if (hasBulletins) {
                 markup += '<div class="has-bulletins fa fa-sticky-note-o"></div>';
             }
-            
-            if (hasComments) {
-//            	markup += '<path class="has-bulletins fa fa-home fa-fw" transform="translate(30,30)" d="m5,5 l0,18 l-8,20 z"></path>';
- //           	markup += '<svg><path class="has-comments" transform="translate(62,13)" d="m0,0 l0,8 l-8,0 z"><title>dataContext.component.comments</title></path></svg>';
-            	markup += '<div class="pointer has-comments fa fa-comment"></div>';
 
-            } 
-
-            if (hasErrors || hasBulletins || hasComments) {
+            if (hasComments || hasErrors || hasBulletins) {
                 markup += '<span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
             }
 //            markup +='</svg>';
@@ -1166,6 +1165,35 @@
 
         // hold onto an instance of the grid
         serviceTable.data('gridInstance', controllerServicesGrid).on('mouseenter', 'div.slick-cell', function (e) {
+            var commentsIcon = $(this).find('div.has-comments');
+            if (commentsIcon.length && !commentsIcon.data('qtip')) {
+                var serviceId = $(this).find('span.row-id').text();
+
+                // get the service item
+                var controllerServiceEntity = controllerServicesData.getItemById(serviceId);
+
+                // format the tooltip
+                var tooltip = nfCommon.formatValue(controllerServiceEntity.component.comments);
+
+                // show the tooltip
+                if (nfCommon.isDefinedAndNotNull(tooltip)) {
+                    commentsIcon.qtip($.extend({},
+                        nfCommon.config.tooltipConfig,
+                        {
+                            content: tooltip,
+                            position: {
+                                target: 'mouse',
+                                viewport: $('#shell-container'),
+                                adjust: {
+                                    x: 8,
+                                    y: 8,
+                                    method: 'flipinvert flipinvert'
+                                }
+                            }
+                        }));
+                }
+            }
+
             var errorIcon = $(this).find('div.has-errors');
             if (errorIcon.length && !errorIcon.data('qtip')) {
                 var serviceId = $(this).find('span.row-id').text();
@@ -1224,39 +1252,6 @@
                         }));
                 }
             }
-
-            var commentsIcon = $(this).find('div.has-comments');
-            if (commentsIcon.length && !commentsIcon.data('qtip')) {
- //           	if (true) {
-                var serviceId = $(this).find('span.row-id').text();
-
-                // get the service item
-                var controllerServiceEntity = controllerServicesData.getItemById(serviceId);
-
-                // format the tooltip
-          //      var comments  = nfCommon.getFormattedBulletins(controllerServiceEntity.component.comments);
-         //       var tooltip = comments; //nfCommon.formatUnorderedList(bulletins);
-                
-                var tooltip = controllerServiceEntity.component.comments;
-
-                // show the tooltip
-                if (nfCommon.isDefinedAndNotNull(tooltip)) {
-                    commentsIcon.qtip($.extend({},
-                        nfCommon.config.tooltipConfig,
-                        {
-                            content: tooltip,
-                            position: {
-                                target: 'mouse',
-                                viewport: $('#shell-container'),
-                                adjust: {
-                                    x: 8,
-                                    y: 8,
-                                    method: 'flipinvert flipinvert'
-                                }
-                            }
-                        }));
-                }
-            }  
         });
     };
 
@@ -1267,7 +1262,6 @@
      * @param {jQuery} serviceTable
      */
     var loadControllerServices = function (controllerServicesUri, serviceTable) {
-    	//  this is it
         return $.ajax({
             type: 'GET',
             url: controllerServicesUri,
@@ -1284,9 +1278,9 @@
                 }, service));
             });
 
+            nfCommon.cleanUpTooltips(serviceTable, 'div.has-comments');
             nfCommon.cleanUpTooltips(serviceTable, 'div.has-errors');
             nfCommon.cleanUpTooltips(serviceTable, 'div.has-bulletins');
-            nfCommon.cleanUpTooltips(serviceTable, 'div.has-comments');
 
             var controllerServicesGrid = serviceTable.data('gridInstance');
             var controllerServicesData = controllerServicesGrid.getData();
