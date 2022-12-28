@@ -19,24 +19,31 @@ package org.apache.nifi.processors.windows.event.log.jna;
 
 import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinError;
-import org.apache.nifi.processors.windows.event.log.JNAJUnitRunner;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+//import org.junit.Before;
+//import org.junit.Test;
+//import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
-@RunWith(JNAJUnitRunner.class)
+
+
+//@RunWith(JNAJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ErrorLookupTest {
     @Mock
     Kernel32 kernel32;
 
     private ErrorLookup errorLookup;
 
-    @Before
+    @BeforeEach
     public void setup() {
+        System.out.println("begin setUp()");
         errorLookup = new ErrorLookup(kernel32);
     }
 

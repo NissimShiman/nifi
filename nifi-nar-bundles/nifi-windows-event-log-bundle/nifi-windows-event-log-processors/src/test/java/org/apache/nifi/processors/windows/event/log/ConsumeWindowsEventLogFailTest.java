@@ -19,13 +19,12 @@ package org.apache.nifi.processors.windows.event.log;
 
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test scenario where we can't load the native libraries
  */
-@RunWith(JNAFailJUnitRunner.class)
+//@RunWith(JNAFailJUnitRunner.class)
 public class ConsumeWindowsEventLogFailTest {
 
     /**

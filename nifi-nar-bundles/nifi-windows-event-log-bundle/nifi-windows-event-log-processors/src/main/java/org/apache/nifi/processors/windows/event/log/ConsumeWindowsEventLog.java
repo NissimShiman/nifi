@@ -18,7 +18,6 @@
 package org.apache.nifi.processors.windows.event.log;
 
 import com.sun.jna.platform.win32.Kernel32;
-import com.sun.jna.platform.win32.Kernel32Util;
 import com.sun.jna.platform.win32.WinNT;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.TriggerSerially;
@@ -174,7 +173,7 @@ public class ConsumeWindowsEventLog extends AbstractSessionFactoryProcessor {
         this.kernel32 = kernel32 == null ? loadKernel32() : kernel32;
         this.errorLookup = new ErrorLookup(this.kernel32);
         if (this.kernel32 != null) {
-            name = Kernel32Util.getComputerName();
+            name = "me"; //Kernel32Util.getComputerName();
         } else {
             // Won't be able to use the processor anyway because native libraries didn't load
             name = null;

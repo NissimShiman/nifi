@@ -22,10 +22,10 @@ import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinNT;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processors.windows.event.log.ConsumeWindowsEventLogTest;
-import org.apache.nifi.processors.windows.event.log.JNAJUnitRunner;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.Mock;
 
 import java.util.Arrays;
@@ -37,7 +37,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@RunWith(JNAJUnitRunner.class)
+//@RunWith(JNAJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class EventSubscribeXmlRenderingCallbackTest {
     @Mock
     ComponentLog logger;
@@ -60,7 +61,7 @@ public class EventSubscribeXmlRenderingCallbackTest {
     private EventSubscribeXmlRenderingCallback eventSubscribeXmlRenderingCallback;
     private int maxBufferSize;
 
-    @Before
+    @BeforeEach
     public void setup() {
         maxBufferSize = 8;
         eventSubscribeXmlRenderingCallback = new EventSubscribeXmlRenderingCallback(logger, consumer, maxBufferSize, wEvtApi, kernel32, errorLookup);
