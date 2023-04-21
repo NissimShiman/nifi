@@ -1416,7 +1416,7 @@ public class XmlFlowSynchronizer implements FlowSynchronizer {
         return sensitivePropertyNames.stream().filter(
                 propertyName -> {
                     final PropertyDescriptor propertyDescriptor = componentNode.getPropertyDescriptor(propertyName);
-                    return propertyDescriptor.isDynamic();
+                    return propertyDescriptor.isDynamic() && propertyDescriptor.isSensitive();
                 }
         ).collect(Collectors.toSet());
     }

@@ -951,6 +951,7 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
         return versionedSensitivePropertyNames.stream()
                 .map(componentNode::getPropertyDescriptor)
                 .filter(PropertyDescriptor::isDynamic)
+                .filter(PropertyDescriptor::isSensitive)
                 .map(PropertyDescriptor::getName)
                 .collect(Collectors.toSet());
     }

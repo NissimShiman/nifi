@@ -181,7 +181,7 @@ public class ControllerServiceLoader {
         return sensitivePropertyNames.stream().filter(
                 propertyName -> {
                     final PropertyDescriptor propertyDescriptor = controllerServiceNode.getPropertyDescriptor(propertyName);
-                    return propertyDescriptor.isDynamic();
+                    return propertyDescriptor.isDynamic() && propertyDescriptor.isSensitive();
                 }
         ).collect(Collectors.toSet());
     }
