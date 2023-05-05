@@ -1395,7 +1395,13 @@ public class XmlFlowSynchronizer implements FlowSynchronizer {
             }
 
             final Set<String> sensitiveDynamicPropertyNames = getSensitiveDynamicPropertyNames(config.getSensitiveDynamicPropertyNames(), procNode);
-            procNode.setProperties(config.getProperties(), false, sensitiveDynamicPropertyNames);
+ logger.warn("XmlFlowSynchronizer updateProcessor() - sensitiveDynamicPropertyNames:");
+ for (String s: sensitiveDynamicPropertyNames) {
+     logger.warn(s);
+ }
+// sensitiveDynamicPropertyNames.clear();
+
+     procNode.setProperties(config.getProperties(), false, sensitiveDynamicPropertyNames);
 
             final ScheduledState scheduledState = ScheduledState.valueOf(processorDTO.getState());
             if (ScheduledState.RUNNING.equals(scheduledState)) {
@@ -1416,7 +1422,7 @@ public class XmlFlowSynchronizer implements FlowSynchronizer {
         return sensitivePropertyNames.stream().filter(
                 propertyName -> {
                     final PropertyDescriptor propertyDescriptor = componentNode.getPropertyDescriptor(propertyName);
-                    return propertyDescriptor.isDynamic();
+                    return propertyDescriptor.isDynamic() && propertyDescriptor.isSensitive();
                 }
         ).collect(Collectors.toSet());
     }

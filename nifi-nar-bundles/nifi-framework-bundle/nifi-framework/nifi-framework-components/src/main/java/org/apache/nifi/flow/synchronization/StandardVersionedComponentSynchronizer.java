@@ -1379,6 +1379,7 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
                 .map(Map.Entry::getKey)
                 .map(componentNode::getPropertyDescriptor)
                 .filter(PropertyDescriptor::isDynamic)
+                .filter(PropertyDescriptor::isSensitive)
                 .map(PropertyDescriptor::getName)
                 .forEach(sensitiveDynamicPropertyNames::add);
 
