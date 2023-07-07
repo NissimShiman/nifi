@@ -38,6 +38,7 @@ import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.components.ValidationContext;
@@ -99,6 +100,8 @@ import org.apache.tika.mime.MimeTypeException;
 }
 )
 public class IdentifyMimeType extends AbstractProcessor {
+    static final AllowableValue REPLACE = new AllowableValue("replace", "replace", "Use config definitions only when determining mime type.");
+    static final AllowableValue ADD = new AllowableValue("add", "add", "Use config in addition to default definitions when determining mime type");
 
     public static final PropertyDescriptor USE_FILENAME_IN_DETECTION = new PropertyDescriptor.Builder()
            .displayName("Use Filename In Detection")
@@ -127,6 +130,16 @@ public class IdentifyMimeType extends AbstractProcessor {
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .build();
 
+    public static final PropertyDescriptor CONFIG_STRATEGY = new PropertyDescriptor.Builder()
+            .displayName("Config Strategy")
+            .name("config-strategy")
+            .description("Replace default NiFi MIME type definitions or add to them.  "
+                    + "Only relevant if Config File or Config Body is used.")
+            .required(false)
+            .allowableValues(REPLACE, ADD)
+            .defaultValue(REPLACE.getDisplayName())
+            .build();
+
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
             .description("All FlowFiles are routed to success")
@@ -150,6 +163,7 @@ public class IdentifyMimeType extends AbstractProcessor {
         properties.add(USE_FILENAME_IN_DETECTION);
         properties.add(MIME_CONFIG_BODY);
         properties.add(MIME_CONFIG_FILE);
+        properties.add(CONFIG_STRATEGY);
         this.properties = Collections.unmodifiableList(properties);
 
         final Set<Relationship> rels = new HashSet<>();
@@ -158,34 +172,37 @@ public class IdentifyMimeType extends AbstractProcessor {
     }
 
     @OnScheduled
-    public void setup(final ProcessContext context) {
+    public void setup(final ProcessContext context) throws IOException {
         String configBody = context.getProperty(MIME_CONFIG_BODY).getValue();
         String configFile = context.getProperty(MIME_CONFIG_FILE).evaluateAttributeExpressions().getValue();
 
         if (configBody == null && configFile == null){
             this.detector = config.getDetector();
             this.mimeTypes = config.getMimeRepository();
-        } else if (configBody != null) {
-            try {
-                this.detector = MimeTypesFactory.create(new ByteArrayInputStream(configBody.getBytes()));
-                this.mimeTypes = (MimeTypes)this.detector;
-            } catch (Exception e) {
-                context.yield();
-                throw new ProcessException("Failed to load config body", e);
-            }
-
         } else {
-            try (final FileInputStream fis = new FileInputStream(configFile);
-                 final InputStream bis = new BufferedInputStream(fis)) {
-                this.detector = MimeTypesFactory.create(bis);
-                this.mimeTypes = (MimeTypes)this.detector;
-            } catch (Exception e) {
-                context.yield();
-                throw new ProcessException("Failed to load config file", e);
-            }
+            setCustomMimeTypes(configBody, configFile, context);
         }
     }
 
+    private void setCustomMimeTypes(String configBody, String configFile, ProcessContext context) throws IOException {
+        String configStrategy = context.getProperty(CONFIG_STRATEGY).getValue();
+
+        try (final InputStream customInputStream = configBody != null ? new ByteArrayInputStream(configBody.getBytes()) : new FileInputStream(configFile);
+             final InputStream nifiInputStream = getClass().getClassLoader().getResourceAsStream("org/apache/tika/mime/custom-mimetypes.xml");
+             final InputStream tikaInputStream = MimeTypes.class.getClassLoader().getResourceAsStream("org/apache/tika/mime/tika-mimetypes.xml")) {
+
+            if (configStrategy.equals(REPLACE.getValue())) {
+                this.detector = MimeTypesFactory.create(customInputStream);
+            } else {
+                this.detector = MimeTypesFactory.create(customInputStream, nifiInputStream, tikaInputStream);
+            }
+            this.mimeTypes = (MimeTypes) this.detector;
+        } catch (Exception e) {
+            context.yield();
+            String configSource = configBody != null ? "body" : "file";
+            throw new ProcessException("Failed to load config " + configSource, e);
+        }
+    }
 
     @Override
     public Set<Relationship> getRelationships() {
