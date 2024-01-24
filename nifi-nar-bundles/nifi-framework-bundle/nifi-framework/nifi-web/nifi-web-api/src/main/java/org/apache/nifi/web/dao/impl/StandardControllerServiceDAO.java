@@ -379,9 +379,9 @@ public class StandardControllerServiceDAO extends ComponentDAO implements Contro
             if (isNotNull(annotationData)) {
                 controllerService.setAnnotationData(annotationData);
             }
-            if (isNotNull(comments)) {
-                controllerService.setComments(comments);
-            }
+
+            controllerService.setComments(comments);
+
             if (isNotNull(properties)) {
                 final Set<String> sensitiveDynamicPropertyNames = controllerServiceDTO.getSensitiveDynamicPropertyNames();
                 controllerService.setProperties(properties, false, sensitiveDynamicPropertyNames == null ? Collections.emptySet() : sensitiveDynamicPropertyNames);

@@ -143,7 +143,11 @@ public class ControllerServiceAuditor extends NiFiAuditor {
 
                 // determine the type of operation
                 if (oldValue == null || newValue == null || !newValue.equals(oldValue)) {
-                    operation = Operation.Configure;
+                    if (property.contentEquals(COMMENTS) && oldValue == null && newValue == null) {
+                        // do nothing
+                    } else {
+                        operation = Operation.Configure;
+                    }
                 }
 
                 // create a configuration action accordingly
@@ -437,9 +441,9 @@ public class ControllerServiceAuditor extends NiFiAuditor {
                 values.put(propertyName, configuredPropertyValue);
             }
         }
-        if (controllerServiceDTO.getComments() != null) {
-            values.put(COMMENTS, controllerService.getComments());
-        }
+
+        values.put(COMMENTS, controllerService.getComments());
+
         if (controllerServiceDTO.getBulletinLevel() != null) {
             values.put(BULLETIN_LEVEL, controllerService.getBulletinLevel().name());
         }

@@ -136,7 +136,6 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
         this.active = new AtomicBoolean();
         setControllerServiceAndProxy(implementation, proxiedControllerService, invocationHandler);
         stateTransition = new ServiceStateTransition(this);
-        this.comment = "";
     }
 
     @Override

@@ -125,7 +125,9 @@
         controllerServiceDto['id'] = $('#controller-service-id').text();
         controllerServiceDto['name'] = $('#controller-service-name').val();
         controllerServiceDto['bulletinLevel'] = $('#controller-service-bulletin-level-combo').combo('getSelectedOption').value;
-        controllerServiceDto['comments'] = $('#controller-service-comments').val();
+
+        var comments = $('#controller-service-comments').val();
+        controllerServiceDto['comments'] = comments !== '' ? comments : null;
 
         // set the properties
         if ($.isEmptyObject(properties) === false) {
