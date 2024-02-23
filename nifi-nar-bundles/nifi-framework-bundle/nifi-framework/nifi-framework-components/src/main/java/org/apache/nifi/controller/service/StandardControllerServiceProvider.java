@@ -16,6 +16,27 @@
  */
 package org.apache.nifi.controller.service;
 
+import static java.util.Objects.requireNonNull;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.ComponentNode;
 import org.apache.nifi.controller.ControllerService;
@@ -39,27 +60,6 @@ import org.apache.nifi.reporting.BulletinRepository;
 import org.apache.nifi.reporting.Severity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
-
-import static java.util.Objects.requireNonNull;
 
 public class StandardControllerServiceProvider implements ControllerServiceProvider {
 
@@ -109,6 +109,7 @@ public class StandardControllerServiceProvider implements ControllerServiceProvi
         return scheduleReferencingComponents(serviceNode, null, new DefaultComponentScheduler(this, VersionedComponentStateLookup.IDENTITY_LOOKUP));
     }
 
+    @Override
     public Set<ComponentNode> scheduleReferencingComponents(final ControllerServiceNode serviceNode, final Set<ComponentNode> candidates, final ComponentScheduler componentScheduler) {
         // find all of the schedulable components (processors, reporting tasks) that refer to this Controller Service,
         // or a service that references this controller service, etc.
@@ -238,7 +239,7 @@ public class StandardControllerServiceProvider implements ControllerServiceProvi
 
         return updated;
     }
-
+///// here
     @Override
     public CompletableFuture<Void> enableControllerService(final ControllerServiceNode serviceNode) {
         if (serviceNode.isActive()) {
@@ -286,7 +287,7 @@ public class StandardControllerServiceProvider implements ControllerServiceProvi
             }
         }
     }
-
+//
     @Override
     public Future<Void> enableControllerServicesAsync(final Collection<ControllerServiceNode> serviceNodes) {
         final CompletableFuture<Void> future = new CompletableFuture<>();

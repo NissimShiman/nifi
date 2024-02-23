@@ -16,6 +16,8 @@
  */
 package org.apache.nifi.web.dao.impl;
 
+import java.util.List;
+
 import org.apache.nifi.bundle.Bundle;
 import org.apache.nifi.bundle.BundleCoordinate;
 import org.apache.nifi.controller.FlowController;
@@ -23,8 +25,6 @@ import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.web.ResourceNotFoundException;
 import org.apache.nifi.web.api.dto.BundleDTO;
-
-import java.util.List;
 
 public abstract class ComponentDAO {
 
@@ -63,7 +63,7 @@ public abstract class ComponentDAO {
      * @param groupId id
      * @return group
      */
-    protected ProcessGroup locateProcessGroup(FlowController flowController, String groupId) {
+    public ProcessGroup locateProcessGroup(FlowController flowController, String groupId) {
         ProcessGroup group = flowController.getFlowManager().getGroup(groupId);
 
         if (group == null) {

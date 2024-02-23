@@ -65,6 +65,10 @@ public class StandardProcessGroupDAO extends ComponentDAO implements ProcessGrou
 
     private FlowController flowController;
 
+    private FlowController getFlowController() {
+        return flowController;
+    }
+
     @Override
     public ProcessGroup createProcessGroup(String parentGroupId, ProcessGroupDTO processGroup) {
         final FlowManager flowManager = flowController.getFlowManager();

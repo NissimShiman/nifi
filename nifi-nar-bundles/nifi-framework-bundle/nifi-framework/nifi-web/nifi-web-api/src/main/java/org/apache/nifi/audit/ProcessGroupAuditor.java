@@ -16,16 +16,29 @@
  */
 package org.apache.nifi.audit;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.nifi.action.Action;
 import org.apache.nifi.action.Component;
+
 import org.apache.nifi.action.FlowChangeAction;
 import org.apache.nifi.action.Operation;
+import org.apache.nifi.action.component.details.FlowChangeExtensionDetails;
 import org.apache.nifi.action.details.ActionDetails;
 import org.apache.nifi.action.details.FlowChangeConfigureDetails;
 import org.apache.nifi.action.details.FlowChangeMoveDetails;
 import org.apache.nifi.authorization.user.NiFiUser;
 import org.apache.nifi.authorization.user.NiFiUserUtils;
+import org.apache.nifi.controller.ProcessorNode;
 import org.apache.nifi.controller.ScheduledState;
+import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.controller.service.ControllerServiceState;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.parameter.ParameterContext;
@@ -39,11 +52,6 @@ import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Set;
-
 /**
  * Audits process group creation/removal and configuration changes.
  */
@@ -51,6 +59,7 @@ import java.util.Set;
 public class ProcessGroupAuditor extends NiFiAuditor {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessGroupAuditor.class);
+ //   private FlowController flowController;
 
     /**
      * Audits the creation of process groups via createProcessGroup().
@@ -210,6 +219,31 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         + "execution(void scheduleComponents(String, org.apache.nifi.controller.ScheduledState, java.util.Set<String>)) && "
         + "args(groupId, state, componentIds)")
     public void scheduleComponentsAdvice(ProceedingJoinPoint proceedingJoinPoint, String groupId, ScheduledState state, Set<String> componentIds) throws Throwable {
+        logger.error("audit start/stop pg");
+        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
+        ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+        Set<ProcessorNode> processors = new HashSet<>();
+   //     Map <ProcessorNode, ScheduledState> origProcessorsStates = new HashMap<>();
+        for (ProcessorNode procNode: processGroup.getProcessors())
+        {
+            logger.error("B4: procNode, scheduledState: " + procNode.getName() + ", " + procNode.getScheduledState());
+            if (!procNode.getScheduledState().equals(state) && !procNode.getScheduledState().equals(ScheduledState.DISABLED)) {
+                processors.add(procNode);
+                logger.error(procNode.getName() + "has been added");
+            }
+
+        }
+
+
+        String name = processGroup.getName();
+        List<ProcessGroup> processGroups =  processGroup.findAllProcessGroups();
+        Set<String> processGroupIds = new HashSet<String>();
+        for (ProcessGroup pg: processGroups) {
+            String id = pg.getIdentifier();
+            logger.error("new pg id: " + id);
+            processGroupIds.add(id);
+        }
+
         final Operation operation;
 
         proceedingJoinPoint.proceed();
@@ -222,6 +256,19 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         }
 
         saveUpdateAction(groupId, operation);
+        // capture top level processors
+        for (ProcessorNode procNode: processors)
+        {
+            logger.error("After: procNode, scheduledState: " + procNode.getName() + ", " + procNode.getScheduledState());
+        //    if (procNode.getScheduledState().equals(state)) {
+                saveProcessorUpdateAction(procNode, operation);
+        //    }
+        }
+
+        for (String id: processGroupIds) {
+            saveUpdateAction(id, operation);
+        }
+
     }
 
     /**
@@ -236,6 +283,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             + "execution(void enableComponents(String, org.apache.nifi.controller.ScheduledState, java.util.Set<String>)) && "
             + "args(groupId, state, componentIds)")
     public void enableComponentsAdvice(ProceedingJoinPoint proceedingJoinPoint, String groupId, ScheduledState state, Set<String> componentIds) throws Throwable {
+ logger.error("audit enable pg");
         final Operation operation;
 
         proceedingJoinPoint.proceed();
@@ -264,6 +312,8 @@ public class ProcessGroupAuditor extends NiFiAuditor {
     public void activateControllerServicesAdvice(ProceedingJoinPoint proceedingJoinPoint, String groupId, ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
         final Operation operation;
 
+        Map<ControllerServiceNode, ControllerServiceState> controllerServiceStates = determineServicesThatCouldChangeState(groupId, state, serviceIds);
+
         proceedingJoinPoint.proceed();
 
         // determine the service state
@@ -274,7 +324,19 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         }
 
         saveUpdateAction(groupId, operation);
+        saveUpdateControllerServiceAction(groupId, controllerServiceStates.keySet() , operation);
     }
+
+    /**
+     * Returns whether the specified controller service is disabled (or disabling).
+     *
+     * @param controllerService service
+     * @return whether the specified controller service is disabled (or disabling)
+     */
+    private boolean isDisabled(final ControllerServiceNode controllerService) {
+        return ControllerServiceState.DISABLED.equals(controllerService.getState()) || ControllerServiceState.DISABLING.equals(controllerService.getState());
+    }
+
 
     @Around("within(org.apache.nifi.web.dao.ProcessGroupDAO+) && "
             + "execution(org.apache.nifi.groups.ProcessGroup updateProcessGroupFlow(..))")
@@ -358,6 +420,75 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         // add this action
         saveAction(action, logger);
     }
+
+    private void saveProcessorUpdateAction(ProcessorNode procNode, final Operation operation) {
+        NiFiUser user = NiFiUserUtils.getNiFiUser();
+//        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
+//        ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+
+        // if the user was starting/stopping this process group
+        FlowChangeAction action = new FlowChangeAction();
+        action.setUserIdentity(user.getIdentity());
+        action.setSourceId(procNode.getIdentifier());
+        action.setSourceName(procNode.getName());
+        action.setSourceType(Component.Processor);
+        action.setTimestamp(new Date());
+        action.setOperation(operation);
+
+        // add this action
+        saveAction(action, logger);
+
+    }
+
+    private void saveUpdateControllerServiceAction(final String groupId, Collection<ControllerServiceNode> serviceNodes, final Operation operation) throws Throwable {
+        NiFiUser user = NiFiUserUtils.getNiFiUser();
+//        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
+  //      ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+        for (ControllerServiceNode csNode : serviceNodes) {
+       //     logger.error("cs id audited: " + serviceId.getName());
+ //           ControllerServiceNode csNode =     processGroup.getControllerService(serviceId, true, true);
+   //         if (csNode != null) {
+logger.error("csNode audited: " + csNode.getName());
+                // if the user was enabling/disabling this controller Service
+                FlowChangeAction action = new FlowChangeAction();
+                action.setUserIdentity(user.getIdentity());
+                action.setSourceId(csNode.getIdentifier());
+                action.setSourceName(csNode.getName());
+                action.setSourceType(Component.ControllerService);
+                action.setTimestamp(new Date());
+                action.setOperation(operation);
+                
+                FlowChangeExtensionDetails serviceDetails = new FlowChangeExtensionDetails();
+                serviceDetails.setType(csNode.getComponentType());
+                action.setComponentDetails(serviceDetails);
+
+                // add this action
+                saveAction(action, logger);
+     //       }
+        }
+    }
+//    Map<ControllerServiceNode, ControllerServiceState> controllerServiceStates = determineServicesThatCouldChangeState(String groupId, ControllerServiceState state, Collection<String> serviceIds, final Operation operation);
+
+    private Map<ControllerServiceNode, ControllerServiceState> determineServicesThatCouldChangeState(final String groupId, final ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
+        NiFiUser user = NiFiUserUtils.getNiFiUser();
+        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
+        ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+        HashMap<ControllerServiceNode, ControllerServiceState> csNodes = new HashMap<>();
+        for (String serviceId : serviceIds) {
+            logger.error("cs pre audited -1: " + serviceId);
+            ControllerServiceNode csNode =     processGroup.findControllerService(serviceId, true, true);
+            if (csNode != null) {
+logger.error("csNode pre- audited 2: " + csNode.getName());
+
+
+                if ((isDisabled(csNode) && state.equals(ControllerServiceState.ENABLED)) || !isDisabled(csNode) && state.equals(ControllerServiceState.DISABLED)) {
+                    csNodes.put(csNode, csNode.getState());
+                }
+            }
+        }
+        return csNodes;
+    }
+
 
     /**
      * Audits the removal of a process group via deleteProcessGroup().
