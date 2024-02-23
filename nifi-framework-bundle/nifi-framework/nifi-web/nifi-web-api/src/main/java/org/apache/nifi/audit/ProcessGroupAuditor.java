@@ -20,12 +20,14 @@ import org.apache.nifi.action.Action;
 import org.apache.nifi.action.Component;
 import org.apache.nifi.action.FlowChangeAction;
 import org.apache.nifi.action.Operation;
+import org.apache.nifi.action.component.details.FlowChangeExtensionDetails;
 import org.apache.nifi.action.details.ActionDetails;
 import org.apache.nifi.action.details.FlowChangeConfigureDetails;
 import org.apache.nifi.action.details.FlowChangeMoveDetails;
 import org.apache.nifi.authorization.user.NiFiUser;
 import org.apache.nifi.authorization.user.NiFiUserUtils;
 import org.apache.nifi.controller.ScheduledState;
+import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.controller.service.ControllerServiceState;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.parameter.ParameterContext;
@@ -42,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -221,7 +224,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             operation = Operation.Stop;
         }
 
-        saveUpdateAction(groupId, operation);
+        saveUpdateProcessGroupAction(groupId, operation);
     }
 
     /**
@@ -247,7 +250,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             operation = Operation.Enable;
         }
 
-        saveUpdateAction(groupId, operation);
+        saveUpdateProcessGroupAction(groupId, operation);
     }
 
     /**
@@ -262,6 +265,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         + "execution(void activateControllerServices(String, org.apache.nifi.controller.service.ControllerServiceState, java.util.Collection<String>)) && "
         + "args(groupId, state, serviceIds)")
     public void activateControllerServicesAdvice(ProceedingJoinPoint proceedingJoinPoint, String groupId, ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
+        List<ControllerServiceNode> controllerServiceNodes = getControllerServicesChangingState(groupId, state, serviceIds);
         final Operation operation;
 
         proceedingJoinPoint.proceed();
@@ -273,7 +277,33 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             operation = Operation.Disable;
         }
 
-        saveUpdateAction(groupId, operation);
+        saveUpdateProcessGroupAction(groupId, operation);
+        for (ControllerServiceNode csNode : controllerServiceNodes) {
+            saveUpdateControllerServiceAction(csNode, operation);
+        }
+    }
+
+    private List<ControllerServiceNode> getControllerServicesChangingState(final String groupId, final ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
+        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
+        ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+        List<ControllerServiceNode> csNodes = new ArrayList<>();
+        for (String serviceId : serviceIds) {
+            ControllerServiceNode csNode = processGroup.findControllerService(serviceId, true, true);
+            if (csNode != null) {
+                if ((isControllerServiceDisabled(csNode) && state.equals(ControllerServiceState.ENABLED)) || isControllerServiceEnabled(csNode) && state.equals(ControllerServiceState.DISABLED)) {
+                    csNodes.add(csNode);
+                }
+            }
+        }
+        return csNodes;
+    }
+
+    private boolean isControllerServiceDisabled(final ControllerServiceNode controllerService) {
+        return ControllerServiceState.DISABLED.equals(controllerService.getState()) || ControllerServiceState.DISABLING.equals(controllerService.getState());
+    }
+
+    private boolean isControllerServiceEnabled(final ControllerServiceNode controllerService) {
+        return ControllerServiceState.ENABLED.equals(controllerService.getState()) || ControllerServiceState.ENABLING.equals(controllerService.getState());
     }
 
     @Around("within(org.apache.nifi.web.dao.ProcessGroupDAO+) && "
@@ -302,7 +332,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             }
         }
 
-        saveUpdateAction(groupId, operation);
+        saveUpdateProcessGroupAction(groupId, operation);
 
         return updatedProcessGroup;
     }
@@ -325,7 +355,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
             operation = Operation.CommitLocalChanges;
         }
 
-        saveUpdateAction(vciDto.getGroupId(), operation);
+        saveUpdateProcessGroupAction(vciDto.getGroupId(), operation);
 
         return updatedProcessGroup;
     }
@@ -336,12 +366,12 @@ public class ProcessGroupAuditor extends NiFiAuditor {
     public ProcessGroup disconnectVersionControlAdvice(final ProceedingJoinPoint proceedingJoinPoint, final String groupId) throws Throwable {
         final ProcessGroup updatedProcessGroup = (ProcessGroup) proceedingJoinPoint.proceed();
 
-        saveUpdateAction(groupId, Operation.StopVersionControl);
+        saveUpdateProcessGroupAction(groupId, Operation.StopVersionControl);
 
         return updatedProcessGroup;
     }
 
-    private void saveUpdateAction(final String groupId, final Operation operation) throws Throwable {
+    private void saveUpdateProcessGroupAction(final String groupId, final Operation operation) throws Throwable {
         NiFiUser user = NiFiUserUtils.getNiFiUser();
         ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
         ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
@@ -354,6 +384,25 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         action.setSourceType(Component.ProcessGroup);
         action.setTimestamp(new Date());
         action.setOperation(operation);
+
+        // add this action
+        saveAction(action, logger);
+    }
+
+    private void saveUpdateControllerServiceAction(ControllerServiceNode csNode, final Operation operation) throws Throwable {
+        NiFiUser user = NiFiUserUtils.getNiFiUser();
+
+        FlowChangeAction action = new FlowChangeAction();
+        action.setUserIdentity(user.getIdentity());
+        action.setSourceId(csNode.getIdentifier());
+        action.setSourceName(csNode.getName());
+        action.setSourceType(Component.ControllerService);
+        action.setTimestamp(new Date());
+        action.setOperation(operation);
+
+        FlowChangeExtensionDetails serviceDetails = new FlowChangeExtensionDetails();
+        serviceDetails.setType(csNode.getComponentType());
+        action.setComponentDetails(serviceDetails);
 
         // add this action
         saveAction(action, logger);
