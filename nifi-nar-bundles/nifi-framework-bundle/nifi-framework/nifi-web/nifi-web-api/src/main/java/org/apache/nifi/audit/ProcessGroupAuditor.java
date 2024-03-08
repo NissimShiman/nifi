@@ -312,7 +312,7 @@ public class ProcessGroupAuditor extends NiFiAuditor {
     public void activateControllerServicesAdvice(ProceedingJoinPoint proceedingJoinPoint, String groupId, ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
         final Operation operation;
 
-        Map<ControllerServiceNode, ControllerServiceState> controllerServiceStates = determineServicesThatCouldChangeState(groupId, state, serviceIds);
+        List<ControllerServiceNode> controllerServiceNodes = getServicesChangingState(groupId, state, serviceIds);
 
         proceedingJoinPoint.proceed();
 
@@ -324,7 +324,13 @@ public class ProcessGroupAuditor extends NiFiAuditor {
         }
 
         saveUpdateAction(groupId, operation);
-        saveUpdateControllerServiceAction(groupId, controllerServiceStates.keySet() , operation);
+        for (ControllerServiceNode csNode : controllerServiceNodes) {
+    //        if (ControllerServiceState.ENABLED.equals(state) && isControllerServiceEnabled(csNode) ||
+      //              ControllerServiceState.DISABLED.equals(state) && isControllerServiceDisabled(csNode)) {
+                saveUpdateControllerServiceAction(csNode, operation);
+        //    }
+        }
+  //      saveUpdateControllerServiceAction(groupId, controllerServiceStates.keySet() , operation);
     }
 
     /**
@@ -333,10 +339,19 @@ public class ProcessGroupAuditor extends NiFiAuditor {
      * @param controllerService service
      * @return whether the specified controller service is disabled (or disabling)
      */
-    private boolean isDisabled(final ControllerServiceNode controllerService) {
+    private boolean isControllerServiceDisabled(final ControllerServiceNode controllerService) {
         return ControllerServiceState.DISABLED.equals(controllerService.getState()) || ControllerServiceState.DISABLING.equals(controllerService.getState());
     }
 
+    /**
+     * Returns whether the specified controller service is enabled (or enabling).
+     *
+     * @param controllerService service
+     * @return whether the specified controller service is enabled (or enabling)
+     */
+    private boolean isControllerServiceEnabled(final ControllerServiceNode controllerService) {
+        return ControllerServiceState.ENABLED.equals(controllerService.getState()) || ControllerServiceState.ENABLING.equals(controllerService.getState());
+    }
 
     @Around("within(org.apache.nifi.web.dao.ProcessGroupDAO+) && "
             + "execution(org.apache.nifi.groups.ProcessGroup updateProcessGroupFlow(..))")
@@ -440,15 +455,15 @@ public class ProcessGroupAuditor extends NiFiAuditor {
 
     }
 
-    private void saveUpdateControllerServiceAction(final String groupId, Collection<ControllerServiceNode> serviceNodes, final Operation operation) throws Throwable {
+    private void saveUpdateControllerServiceAction(ControllerServiceNode csNode, final Operation operation) throws Throwable {
         NiFiUser user = NiFiUserUtils.getNiFiUser();
 //        ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
   //      ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
-        for (ControllerServiceNode csNode : serviceNodes) {
+//        for (ControllerServiceNode csNode : serviceNodes) {
        //     logger.error("cs id audited: " + serviceId.getName());
  //           ControllerServiceNode csNode =     processGroup.getControllerService(serviceId, true, true);
    //         if (csNode != null) {
-logger.error("csNode audited: " + csNode.getName());
+logger.error("csNode5 audited: " + csNode.getName());
                 // if the user was enabling/disabling this controller Service
                 FlowChangeAction action = new FlowChangeAction();
                 action.setUserIdentity(user.getIdentity());
@@ -457,7 +472,7 @@ logger.error("csNode audited: " + csNode.getName());
                 action.setSourceType(Component.ControllerService);
                 action.setTimestamp(new Date());
                 action.setOperation(operation);
-                
+
                 FlowChangeExtensionDetails serviceDetails = new FlowChangeExtensionDetails();
                 serviceDetails.setType(csNode.getComponentType());
                 action.setComponentDetails(serviceDetails);
@@ -465,24 +480,22 @@ logger.error("csNode audited: " + csNode.getName());
                 // add this action
                 saveAction(action, logger);
      //       }
-        }
+  //      }
     }
 //    Map<ControllerServiceNode, ControllerServiceState> controllerServiceStates = determineServicesThatCouldChangeState(String groupId, ControllerServiceState state, Collection<String> serviceIds, final Operation operation);
 
-    private Map<ControllerServiceNode, ControllerServiceState> determineServicesThatCouldChangeState(final String groupId, final ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
+    private List<ControllerServiceNode> getServicesChangingState(final String groupId, final ControllerServiceState state, Collection<String> serviceIds) throws Throwable {
         NiFiUser user = NiFiUserUtils.getNiFiUser();
         ProcessGroupDAO processGroupDAO = getProcessGroupDAO();
         ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
-        HashMap<ControllerServiceNode, ControllerServiceState> csNodes = new HashMap<>();
+        List<ControllerServiceNode> csNodes = new ArrayList<>();
         for (String serviceId : serviceIds) {
             logger.error("cs pre audited -1: " + serviceId);
             ControllerServiceNode csNode =     processGroup.findControllerService(serviceId, true, true);
             if (csNode != null) {
 logger.error("csNode pre- audited 2: " + csNode.getName());
-
-
-                if ((isDisabled(csNode) && state.equals(ControllerServiceState.ENABLED)) || !isDisabled(csNode) && state.equals(ControllerServiceState.DISABLED)) {
-                    csNodes.put(csNode, csNode.getState());
+                if ((isControllerServiceDisabled(csNode) && state.equals(ControllerServiceState.ENABLED)) || isControllerServiceEnabled(csNode) && state.equals(ControllerServiceState.DISABLED)) {
+                    csNodes.add(csNode);
                 }
             }
         }
