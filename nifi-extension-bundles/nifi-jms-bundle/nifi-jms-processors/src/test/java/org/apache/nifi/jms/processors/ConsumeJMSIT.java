@@ -27,6 +27,7 @@ import org.apache.activemq.command.ActiveMQMessage;
 import org.apache.activemq.transport.tcp.TcpTransport;
 import org.apache.activemq.transport.tcp.TcpTransportFactory;
 import org.apache.activemq.wireformat.WireFormat;
+import org.apache.nifi.annotation.notification.PrimaryNodeState;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.jms.cf.JMSConnectionFactoryProperties;
 import org.apache.nifi.jms.cf.JMSConnectionFactoryProvider;
@@ -38,10 +39,12 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.reporting.InitializationException;
+import org.apache.nifi.scheduling.ExecutionNode;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.MockProcessContext;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.jms.connection.CachingConnectionFactory;
@@ -77,6 +80,7 @@ import static org.apache.nifi.jms.processors.helpers.JMSTestUtil.createJsonRecor
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -326,7 +330,478 @@ public class ConsumeJMSIT {
             }
         }
     }
+    
+    public class MyRunnable implements Runnable {
+        private TestRunner runner;
 
+        public MyRunnable(TestRunner runner) {
+            this.runner = runner;
+        }
+
+        @Override
+        public void run() {
+            runner.run(5, false, false);
+        }
+    }
+
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
+    public void validateQueueConnectionClosedOnPrimaryNodeChange() throws Exception {
+        BrokerService broker = new BrokerService();
+        try {
+            broker.setPersistent(false);
+            broker.setBrokerName("broker1");
+            broker.start();
+            ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("vm://broker1");
+            final String destinationName = "validateNifi14124";
+
+            TestRunner c1Consumer = createQueueConsumer(cf, destinationName);
+            c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setConnected(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setPrimaryNode(true);
+            c1Consumer.setRunSchedule(1000);
+
+//            final ProcessContext processContext = spy(testRunner.getProcessContext());
+
+
+            final ProcessContext processContext = spy(c1Consumer.getProcessContext());
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            final ConsumeJMS processor = (ConsumeJMS) c1Consumer.getProcessor();
+            processor.onSchedule(processContext);
+
+            // 1. Start a durable non shared consumer C1 with client id client1 subscribed to topic T.
+            boolean stopConsumer = true;
+ //           c1Consumer.run(1, stopConsumer);
+            c1Consumer.run(1, false);
+            List<MockFlowFile> flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertTrue(flowFiles.isEmpty(), "Expected no messages");
+            // 2. Publish a message M1 to topic T.
+            publishAQueueMessage(cf, destinationName, "Hi buddy!!");
+            // 3. Start C1.
+//            c1Consumer.run(1, true);
+            
+            // 3. Start C1.
+           c1Consumer.run(1, false, false);
+            
+/*           Thread myThread = new Thread(new MyRunnable(c1Consumer));
+            myThread.start();
+*/
+ //           
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(1, flowFiles.size());
+
+ //           // It is expected C1 receives message M1.
+           final MockFlowFile successFF = flowFiles.get(0);
+          assertNotNull(successFF);
+            successFF.assertAttributeExists(JmsHeaders.DESTINATION);
+          successFF.assertAttributeEquals(JmsHeaders.DESTINATION, destinationName);
+          successFF.assertContentEquals("Hi buddy!!".getBytes());
+            assertEquals(destinationName, successFF.getAttribute(ConsumeJMS.JMS_SOURCE_DESTINATION_NAME));
+            c1Consumer.clearTransferState();
+            
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+           assertEquals(0, flowFiles.size());
+    
+            
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+            processor.updateScheduledTrue();
+  //          c1Consumer.setPrimaryNode(false);
+  //          processor.onSchedule(processContext);
+//            assertNotNull(processor.workerPool.poll());
+  //          processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+//            assertNull(processor.workerPool.poll());
+           
+            // 2. Publish a message M1 to topic T.
+ ///           publishAMessage(cf, destinationName, "Hi buddy number two!!");
+            // 3. Start C1.
+   /*         c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setConnected(false);
+            c1Consumer.setPrimaryNode(true);*/
+            processor.onSchedule(processContext);
+ //           processor.onTrigger(processContext, c1Consumer.getProcessSessionFactory().createSession());
+            //c1Consumer.unSchedule();
+            processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+  //          c1Consumer.run(1, false,false);
+  //          flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+  //          assertEquals(0, flowFiles.size());
+//////////////            assertEquals(0, processor.workerPool.size());
+
+            
+
+            TestRunner c2Consumer = createQueueConsumer(cf, destinationName);
+            c2Consumer.setIsConfiguredForClustering(true);
+            c2Consumer.setPrimaryNode(true);
+            c2Consumer.setConnected(true);
+            
+            
+            final ProcessContext processContext1 = spy(c2Consumer.getProcessContext());
+            when(processContext1.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+//            c2Consumer.run(1, true);
+            publishAQueueMessage(cf, destinationName, "Hi buddy3!!");
+            
+            c2Consumer.run(1, false, true);
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+            c2Consumer.clearTransferState();
+            publishAQueueMessage(cf, destinationName, "Hi buddy33!!");
+            
+            when(processContext1.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+            
+            c2Consumer.setPrimaryNode(false);
+            
+           final ConsumeJMS processor1 = (ConsumeJMS) c2Consumer.getProcessor();
+            processor1.onSchedule(processContext1);
+//            processor1.setupWorkerPool(processContext1);
+        //    processor1.setupConnectionFactoryProvider(processContext1);
+            processor1.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+
+            
+            
+            c2Consumer.run(1, true, false);
+            List<MockFlowFile>  ff = c2Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            for (MockFlowFile mockFF : ff) {
+            	System.out.println("Flow file : " + mockFF.getContent());
+            }
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+
+           
+        } catch (Exception e) {
+            throw e;
+        } finally {
+    //    	Thread.sleep(3000);
+            if (broker != null) {
+                broker.stop();
+            }
+        }
+    }
+
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
+    public void validateConnectionClosedOnPrimaryNodeChange() throws Exception {
+        BrokerService broker = new BrokerService();
+        try {
+            broker.setPersistent(false);
+            broker.setBrokerName("broker1");
+            broker.start();
+            ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("vm://broker1");
+            final String destinationName = "validateNifi14124";
+
+            TestRunner c1Consumer = createNonSharedNonDurableConsumer(cf, destinationName);
+            c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setConnected(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setPrimaryNode(true);
+            c1Consumer.setRunSchedule(1000);
+            
+            
+
+//            final ProcessContext processContext = spy(testRunner.getProcessContext());
+
+
+            final ProcessContext processContext = spy(c1Consumer.getProcessContext());
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            final ConsumeJMS processor = (ConsumeJMS) c1Consumer.getProcessor();
+            processor.onSchedule(processContext);
+
+            // 1. Start a durable non shared consumer C1 with client id client1 subscribed to topic T.
+            boolean stopConsumer = true;
+ //           c1Consumer.run(1, stopConsumer);
+            c1Consumer.run(1, false);
+            List<MockFlowFile> flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertTrue(flowFiles.isEmpty(), "Expected no messages");
+            // 2. Publish a message M1 to topic T.
+            publishAMessage(cf, destinationName, "Hi buddy!!");
+            // 3. Start C1.
+//            c1Consumer.run(1, true);
+            
+            // 3. Start C1.
+           c1Consumer.run(1, false, false);
+            
+/*           Thread myThread = new Thread(new MyRunnable(c1Consumer));
+            myThread.start();
+*/
+ //           
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(1, flowFiles.size());
+
+ //           // It is expected C1 receives message M1.
+           final MockFlowFile successFF = flowFiles.get(0);
+          assertNotNull(successFF);
+            successFF.assertAttributeExists(JmsHeaders.DESTINATION);
+          successFF.assertAttributeEquals(JmsHeaders.DESTINATION, destinationName);
+          successFF.assertContentEquals("Hi buddy!!".getBytes());
+            assertEquals(destinationName, successFF.getAttribute(ConsumeJMS.JMS_SOURCE_DESTINATION_NAME));
+            c1Consumer.clearTransferState();
+            
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+           assertEquals(0, flowFiles.size());
+    
+            
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+            processor.updateScheduledTrue();
+  //          c1Consumer.setPrimaryNode(false);
+  //          processor.onSchedule(processContext);
+//            assertNotNull(processor.workerPool.poll());
+  //          processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+//            assertNull(processor.workerPool.poll());
+           
+            // 2. Publish a message M1 to topic T.
+ ///           publishAMessage(cf, destinationName, "Hi buddy number two!!");
+            // 3. Start C1.
+   /*         c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setConnected(false);
+            c1Consumer.setPrimaryNode(true);*/
+            processor.onSchedule(processContext);
+ //           processor.onTrigger(processContext, c1Consumer.getProcessSessionFactory().createSession());
+            //c1Consumer.unSchedule();
+            processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+  //          c1Consumer.run(1, false,false);
+  //          flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+  //          assertEquals(0, flowFiles.size());
+/////////////            assertEquals(0, processor.workerPool.size());
+
+            
+
+            TestRunner c2Consumer = createNonSharedDurableConsumer(cf, destinationName);
+            c2Consumer.setIsConfiguredForClustering(true);
+            c2Consumer.setPrimaryNode(true);
+            c2Consumer.setConnected(false);
+            
+            
+            final ProcessContext processContext1 = spy(c2Consumer.getProcessContext());
+            when(processContext1.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            c2Consumer.run(1, true);
+            publishAMessage(cf, destinationName, "Hi buddy3!!");
+            
+            final ConsumeJMS processor1 = (ConsumeJMS) c2Consumer.getProcessor();
+            processor1.onSchedule(processContext1);
+            processor1.setupWorkerPool(processContext1);
+            processor1.setupConnectionFactoryProvider(processContext1);
+            processor1.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+
+            
+            c2Consumer.run(1, true, false);
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+
+           
+        } catch (Exception e) {
+            throw e;
+        } finally {
+    //    	Thread.sleep(3000);
+            if (broker != null) {
+                broker.stop();
+            }
+        }
+    }
+
+
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
+    public void validateConnectionClosedOnPrimaryNodeChange2() throws Exception {
+        BrokerService broker = new BrokerService();
+        try {
+            broker.setPersistent(false);
+            broker.setBrokerName("broker1");
+            broker.start();
+            ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("vm://broker1");
+            final String destinationName = "validateNifi14124";
+
+           
+
+            TestRunner c2Consumer = createNonSharedDurableConsumer(cf, destinationName);
+/*            c2Consumer.setIsConfiguredForClustering(true);
+            c2Consumer.setPrimaryNode(true);
+            c2Consumer.setConnected(true);
+            
+            
+            final ProcessContext processContext1 = spy(c2Consumer.getProcessContext());
+            when(processContext1.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            
+            publishAMessage(cf, destinationName, "Hi buddy3!!");
+            
+            final ConsumeJMS processor1 = (ConsumeJMS) c2Consumer.getProcessor();
+            processor1.onSchedule(processContext1);
+            processor1.setupWorkerPool(processContext1);
+            processor1.setupConnectionFactoryProvider(processContext1);
+            processor1.onPrimaryNodeChange(PrimaryNodeState.ELECTED_PRIMARY_NODE);
+*/          
+ //           c2Consumer.run(1, true);
+            
+            publishAMessage(cf, destinationName, "Hi buddy3!!");
+            
+            c2Consumer.run(1, false, true);
+            
+            
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+            
+c2Consumer.run(1, true, false);
+            
+            
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+
+
+           
+        } catch (Exception e) {
+            throw e;
+        } finally {
+    //    	Thread.sleep(3000);
+            if (broker != null) {
+                broker.stop();
+            }
+        }
+    }
+
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
+    public void validateConnectionClosedOnPrimaryNodeChange3() throws Exception {
+        BrokerService broker = new BrokerService();
+        try {
+            broker.setPersistent(false);;
+            broker.setBrokerName("broker1");
+            broker.start();
+
+            ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("vm:broker1");
+            final String destinationName = "validateConsumerClosing";
+            TestRunner c1Consumer = createNonSharedDurableConsumer(cf, destinationName);
+            c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setConnected(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setPrimaryNode(true);
+
+            final ProcessContext processContext = spy(c1Consumer.getProcessContext());
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            final ConsumeJMS processor = (ConsumeJMS) c1Consumer.getProcessor();
+            processor.onSchedule(processContext);
+            processor.setupWorkerPool(processContext);
+            processor.setupConnectionFactoryProvider(processContext);
+            processor.updateScheduledTrue();
+
+            // running ConsumeJMS.  There is nothing to consume yet, but it sets up the durable consumer
+            c1Consumer.run(1, false, false);
+            List<MockFlowFile> flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(0, flowFiles.size());
+
+            String message = "Hello World";
+            publishAMessage(cf, destinationName, message);
+
+            c1Consumer.run(1, false, false);
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(1, flowFiles.size());
+            assertEquals(1, broker.getCurrentConnections());
+
+            final MockFlowFile successFF = flowFiles.get(0);
+            successFF.assertContentEquals(message.getBytes());
+
+            processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+
+ //           assertEquals(0, processor.workerPool.size());
+            assertEquals(0, broker.getCurrentConnections());
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            if (broker != null) {
+                broker.stop();
+            }
+        }
+    }
+
+    
+    @Test
+    @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
+    public void validateConnectionClosedOnPrimaryNodeChange4_b4Changing3Back() throws Exception {
+        BrokerService broker = new BrokerService();
+        try {
+            broker.setPersistent(false);;
+            broker.setBrokerName("broker1");
+            TransportConnector connector = broker.addConnector("tcp://127.0.0.1:0");
+            int port = connector.getServer().getSocketAddress().getPort();
+            broker.start();
+
+            final AtomicReference<TcpTransport> tcpTransport = new AtomicReference<TcpTransport>();
+            TcpTransportFactory.registerTransportFactory("tcp", new TcpTransportFactory() {
+                @Override
+                protected TcpTransport createTcpTransport(WireFormat wf, SocketFactory socketFactory, URI location, URI localLocation) throws UnknownHostException, IOException {
+                    TcpTransport transport = super.createTcpTransport(wf, socketFactory, location, localLocation);
+                    tcpTransport.set(transport);
+                    System.out.println("in createTcpTransport, location, localLocation: " + location.getPort());
+                    return transport;
+                }
+            });
+
+            ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://127.0.0.1:" + port);
+            final String destinationName = "validateConsumerClosing";
+            TestRunner c1Consumer = createNonSharedDurableConsumer(cf, destinationName);
+            c1Consumer.setIsConfiguredForClustering(true);
+            c1Consumer.setConnected(true);
+            c1Consumer.setClustered(true);
+            c1Consumer.setPrimaryNode(true);
+
+            final ProcessContext processContext = spy(c1Consumer.getProcessContext());
+            when(processContext.getExecutionNode()).thenReturn(ExecutionNode.PRIMARY);
+
+            final ConsumeJMS processor = (ConsumeJMS) c1Consumer.getProcessor();
+            processor.onSchedule(processContext);
+            processor.setupWorkerPool(processContext);
+            processor.setupConnectionFactoryProvider(processContext);
+            System.out.println("broker.getCurrentConnections()a: " + broker.getCurrentConnections());
+            // running ConsumeJMS.  There is nothing to consume yet, but it sets up the durable consumer
+            c1Consumer.run(1, false, false);
+            List<MockFlowFile> flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(0, flowFiles.size());
+            System.out.println("broker.getCurrentConnections()b: " + broker.getCurrentConnections());
+            
+            String message = "Hello World";
+            publishAMessage(cf, destinationName, message);
+
+            c1Consumer.run(1, false, false);
+            flowFiles = c1Consumer.getFlowFilesForRelationship(ConsumeJMS.REL_SUCCESS);
+            assertEquals(1, flowFiles.size());
+
+            final MockFlowFile successFF = flowFiles.get(0);
+            successFF.assertContentEquals(message.getBytes());
+
+            System.out.println("broker.getCurrentConnections()c: " + broker.getCurrentConnections());
+            List<TransportConnector> tconnectors = broker.getTransportConnectors();
+            for (TransportConnector c : tconnectors) {
+            	System.out.println(c.getConnectUri() + ", " + c.connectionCount());
+            	
+            }
+            
+            processor.updateScheduledTrue();
+            processor.onPrimaryNodeChange(PrimaryNodeState.PRIMARY_NODE_REVOKED);
+            
+            
+            for (TransportConnector c : tconnectors) {
+            	System.out.println(c.getConnectUri()+ ", " + c.connectionCount());
+            }
+
+//            assertEquals(0, processor.workerPool.size());
+            System.out.println("broker.getCurrentConnections()d: " + broker.getCurrentConnections());
+            assertFalse(tcpTransport.get().isConnected(), "It is expected transport connection is closed. ");
+
+            TestRunner c2Consumer = createNonSharedDurableConsumer(cf, destinationName);
+            publishAMessage(cf, destinationName, message);
+            c2Consumer.run(1, true, true);
+            c2Consumer.assertAllFlowFilesTransferred(ConsumeJMS.REL_SUCCESS, 1);
+//            assertTrue(tcpTransport.get().isConnected(), "It is expected transport be connected. ");
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            if (broker != null) {
+                broker.stop();
+            }
+        }
+    }
+
+    
     @Test
     @Timeout(value = 10000, unit = TimeUnit.MILLISECONDS)
     public void validateNifi6915OnlyOneThreadAllowed() {
@@ -373,6 +848,7 @@ public class ConsumeJMSIT {
             TransportConnector connector = broker.addConnector("tcp://127.0.0.1:0");
             int port = connector.getServer().getSocketAddress().getPort();
             broker.start();
+            
 
             ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("validateNIFI7034://127.0.0.1:" + port);
             final String destinationName = "nifi7034";
@@ -689,6 +1165,26 @@ public class ConsumeJMSIT {
             producer.send(session.createTextMessage(messageContent));
         }
     }
+    
+    private static void publishADurableMessage(ActiveMQConnectionFactory cf, final String destinationName, String messageContent) throws JMSException {
+        // Publish a message.
+        try (Connection conn = cf.createConnection();
+                Session session = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
+                MessageProducer producer = session.createProducer(session.createTopic(destinationName))) {
+            producer.send(session.createTextMessage(messageContent));
+        }
+    }
+
+    
+    private static void publishAQueueMessage(ActiveMQConnectionFactory cf, final String destinationName, String messageContent) throws JMSException {
+        // Publish a message.
+        try (Connection conn = cf.createConnection();
+                Session session = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
+                MessageProducer producer = session.createProducer(session.createQueue(destinationName))) {
+            producer.send(session.createTextMessage(messageContent));
+        }
+    }
+
 
     private static TestRunner createNonSharedDurableConsumer(ActiveMQConnectionFactory cf, final String destinationName) {
         ConsumeJMS c1 = new ConsumeJMS();
@@ -711,7 +1207,59 @@ public class ConsumeJMSIT {
         c1Consumer.setProperty(ConsumeJMS.SUBSCRIPTION_NAME, "SubscriptionName");
         c1Consumer.setProperty(ConsumeJMS.SHARED_SUBSCRIBER, "false");
         c1Consumer.setProperty(ConsumeJMS.CLIENT_ID, "client1");
+//        c1Consumer.setProperty(ConsumeJMS.TIMEOUT, "1 sec");
         return c1Consumer;
     }
+
+    private static TestRunner createQueueConsumer(ActiveMQConnectionFactory cf, final String destinationName) {
+        ConsumeJMS c1 = new ConsumeJMS();
+        TestRunner c1Consumer = TestRunners.newTestRunner(c1);
+        JMSConnectionFactoryProviderDefinition cs = mock(JMSConnectionFactoryProviderDefinition.class);
+        when(cs.getIdentifier()).thenReturn("cfProvider");
+        when(cs.getConnectionFactory()).thenReturn(cf);
+
+        try {
+            c1Consumer.addControllerService("cfProvider", cs);
+        } catch (InitializationException e) {
+            throw new IllegalStateException(e);
+        }
+        c1Consumer.enableControllerService(cs);
+
+        c1Consumer.setProperty(ConsumeJMS.CF_SERVICE, "cfProvider");
+        c1Consumer.setProperty(ConsumeJMS.DESTINATION, destinationName);
+        c1Consumer.setProperty(ConsumeJMS.DESTINATION_TYPE, ConsumeJMS.QUEUE);
+        c1Consumer.setProperty(ConsumeJMS.DURABLE_SUBSCRIBER, "true");
+        c1Consumer.setProperty(ConsumeJMS.SUBSCRIPTION_NAME, "SubscriptionName");
+        c1Consumer.setProperty(ConsumeJMS.SHARED_SUBSCRIBER, "false");
+        c1Consumer.setProperty(ConsumeJMS.CLIENT_ID, "client1");
+        c1Consumer.setProperty(ConsumeJMS.TIMEOUT, "1 sec");
+        return c1Consumer;
+    }
+
+    private static TestRunner createNonSharedNonDurableConsumer(ActiveMQConnectionFactory cf, final String destinationName) {
+        ConsumeJMS c1 = new ConsumeJMS();
+        TestRunner c1Consumer = TestRunners.newTestRunner(c1);
+        JMSConnectionFactoryProviderDefinition cs = mock(JMSConnectionFactoryProviderDefinition.class);
+        when(cs.getIdentifier()).thenReturn("cfProvider");
+        when(cs.getConnectionFactory()).thenReturn(cf);
+
+        try {
+            c1Consumer.addControllerService("cfProvider", cs);
+        } catch (InitializationException e) {
+            throw new IllegalStateException(e);
+        }
+        c1Consumer.enableControllerService(cs);
+
+        c1Consumer.setProperty(ConsumeJMS.CF_SERVICE, "cfProvider");
+        c1Consumer.setProperty(ConsumeJMS.DESTINATION, destinationName);
+        c1Consumer.setProperty(ConsumeJMS.DESTINATION_TYPE, ConsumeJMS.TOPIC);
+        c1Consumer.setProperty(ConsumeJMS.DURABLE_SUBSCRIBER, "false");
+        c1Consumer.setProperty(ConsumeJMS.SUBSCRIPTION_NAME, "SubscriptionName");
+        c1Consumer.setProperty(ConsumeJMS.SHARED_SUBSCRIBER, "false");
+        c1Consumer.setProperty(ConsumeJMS.CLIENT_ID, "client1");
+        c1Consumer.setProperty(ConsumeJMS.TIMEOUT, "1 sec");
+        return c1Consumer;
+    }
+
 
 }

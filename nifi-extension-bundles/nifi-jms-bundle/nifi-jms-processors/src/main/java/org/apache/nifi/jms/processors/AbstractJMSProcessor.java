@@ -54,7 +54,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -169,6 +172,8 @@ public abstract class AbstractJMSProcessor<T extends JMSWorker> extends Abstract
             .required(true)
             .build();
 
+    protected final AtomicBoolean shutdownWorker = new AtomicBoolean(false);
+    protected final Lock workerLock = new ReentrantLock();
     private volatile IJMSConnectionFactoryProvider connectionFactoryProvider;
     private volatile BlockingQueue<T> workerPool;
     private final AtomicInteger clientIdCounter = new AtomicInteger(1);
@@ -235,11 +240,20 @@ public abstract class AbstractJMSProcessor<T extends JMSWorker> extends Abstract
                 }
             }
             if (worker != null) {
-                worker.jmsTemplate.setExplicitQosEnabled(false);
-                worker.jmsTemplate.setDeliveryMode(Message.DEFAULT_DELIVERY_MODE);
-                worker.jmsTemplate.setTimeToLive(Message.DEFAULT_TIME_TO_LIVE);
-                worker.jmsTemplate.setPriority(Message.DEFAULT_PRIORITY);
-                workerPool.offer(worker);
+                try {
+                    workerLock.lock();
+                    if (shutdownWorker.get()) {
+                        worker.shutdown();
+                    } else {
+                        worker.jmsTemplate.setExplicitQosEnabled(false);
+                        worker.jmsTemplate.setDeliveryMode(Message.DEFAULT_DELIVERY_MODE);
+                        worker.jmsTemplate.setTimeToLive(Message.DEFAULT_TIME_TO_LIVE);
+                        worker.jmsTemplate.setPriority(Message.DEFAULT_PRIORITY);
+                        workerPool.offer(worker);
+                    }
+                } finally {
+                    workerLock.unlock();
+                }
             }
         }
     }

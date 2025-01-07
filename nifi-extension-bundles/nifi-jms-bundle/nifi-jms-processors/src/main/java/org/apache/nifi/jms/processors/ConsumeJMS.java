@@ -27,6 +27,8 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import org.apache.nifi.annotation.notification.OnPrimaryNodeStateChange;
+import org.apache.nifi.annotation.notification.PrimaryNodeState;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.RequiredPermission;
@@ -46,6 +48,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.nifi.scheduling.ExecutionNode;
 import org.apache.nifi.serialization.RecordReaderFactory;
 import org.apache.nifi.serialization.RecordSetWriterFactory;
 import org.springframework.jms.connection.CachingConnectionFactory;
@@ -64,6 +67,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -229,6 +234,8 @@ public class ConsumeJMS extends AbstractJMSProcessor<JMSConsumer> {
 
     private final static List<PropertyDescriptor> propertyDescriptors;
 
+    private final AtomicBoolean runOnPrimary = new AtomicBoolean(false);
+
     static {
         List<PropertyDescriptor> _propertyDescriptors = new ArrayList<>();
 
@@ -293,6 +300,8 @@ public class ConsumeJMS extends AbstractJMSProcessor<JMSConsumer> {
 
     @OnScheduled
     public void onSchedule(ProcessContext context) {
+        runOnPrimary.set(context.getExecutionNode().equals(ExecutionNode.PRIMARY));
+
         if (context.getMaxConcurrentTasks() > 1 && isDurableSubscriber(context) && !isShared(context)) {
             throw new ProcessException("Durable non shared subscriptions cannot work on multiple threads. Check javax/jms/Session#createDurableConsumer API doc.");
         }
@@ -314,6 +323,22 @@ public class ConsumeJMS extends AbstractJMSProcessor<JMSConsumer> {
                 .build());
         }
         return validationResults;
+    }
+
+    @OnPrimaryNodeStateChange
+    public void onPrimaryNodeChange(final PrimaryNodeState newState) {
+        if (isScheduled() && runOnPrimary.get() && newState.equals(PrimaryNodeState.PRIMARY_NODE_REVOKED)) {
+            try {
+                workerLock.lock();
+                shutdownWorker.set(true);
+            } finally {
+                workerLock.unlock();		
+            }
+            close();
+            getLogger().debug("Node is no longer primary.  ConsumeJMS connection(s) have been closed.");
+        } else {
+            shutdownWorker.set(false);
+        }
     }
 
     /**
