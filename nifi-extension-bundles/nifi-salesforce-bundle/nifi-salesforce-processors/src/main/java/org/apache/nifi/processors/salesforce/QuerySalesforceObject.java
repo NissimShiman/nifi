@@ -349,19 +349,9 @@ public class QuerySalesforceObject extends AbstractProcessor {
 
     @Override
     public void onPropertyModified(PropertyDescriptor descriptor, String oldValue, String newValue) {
-        if ((oldValue != null && !oldValue.equals(newValue))
-                && (descriptor.equals(SALESFORCE_INSTANCE_URL)
-                || descriptor.equals(QUERY_TYPE)
-                || descriptor.equals(SOBJECT_NAME)
-                || descriptor.equals(AGE_FIELD)
-                || descriptor.equals(INITIAL_AGE_FILTER)
-                || descriptor.equals(CUSTOM_WHERE_CONDITION)
-                || descriptor.equals(INCLUDE_DELETED_RECORDS))
-        ) {
-            getLogger().debug("A property that require resetting state was modified - {} oldValue {} newValue {}",
+            getLogger().warn("A property was modified - {} oldValue {} newValue {}",
                     descriptor.getDisplayName(), oldValue, newValue);
             resetState = true;
-        }
     }
 
     @Override
