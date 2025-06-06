@@ -2987,6 +2987,7 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
 
             final Set<String> sensitiveDynamicPropertyNames = getSensitiveDynamicPropertyNames(processor, proposed.getProperties(), proposed.getPropertyDescriptors().values());
             final Map<String, String> properties = populatePropertiesMap(processor, proposed.getProperties(), proposed.getPropertyDescriptors(), processor.getProcessGroup(), topLevelGroup);
+            LOG.warn("37b - Updating Processor {}", processor);
             processor.setProperties(properties, true, sensitiveDynamicPropertyNames);
             processor.setRunDuration(proposed.getRunDurationMillis(), TimeUnit.MILLISECONDS);
             processor.setSchedulingStrategy(SchedulingStrategy.valueOf(proposed.getSchedulingStrategy()));
@@ -3023,6 +3024,7 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             // Transition state to disabled/enabled/running
             context.getComponentScheduler().transitionComponentState(processor, proposed.getScheduledState());
             notifyScheduledStateChange((ComponentNode) processor, syncOptions, proposed.getScheduledState());
+            LOG.warn("37d - Updating Processor stateChange to -" + proposed.getScheduledState());
         } finally {
             processor.resumeValidationTrigger();
         }

@@ -144,13 +144,14 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
         this.extensionManager = extensionManager;
         this.flowStorageFile = flowStorageFile;
         this.archiveManager = archiveManager;
+        /// place for nifiProperty  autoResume?
     }
 
     @Override
     public synchronized void sync(final FlowController controller, final DataFlow proposedFlow, final FlowService flowService,
                                   final BundleUpdateStrategy bundleUpdateStrategy)
                     throws FlowSerializationException, UninheritableFlowException, FlowSynchronizationException, MissingBundleException {
-
+logger.error("inside sync");
         final long start = System.currentTimeMillis();
         final FlowManager flowManager = controller.getFlowManager();
         final ProcessGroup root = flowManager.getRootGroup();
@@ -199,13 +200,13 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
 
             // Stop the active components, and then wait for all components to be stopped.
             logger.info("In order to inherit proposed dataflow, will stop any components that will be affected by the update");
-            if (logger.isDebugEnabled()) {
-                logger.debug("Will stop the following components:");
-                logger.debug("{}", activeSet);
+            if (logger.isErrorEnabled()) {
+                logger.error("Will stop the following components:");
+                logger.error("{}", activeSet);
                 final String differencesToString = flowDifferences.stream()
                         .map(FlowDifference::toString)
                         .collect(Collectors.joining("\n"));
-                logger.debug("This Active Set was determined from the following Flow Differences:\n{}",
+                logger.error("This Active Set was determined from the following Flow Differences:\n{}",
                         differencesToString);
             }
 
@@ -397,6 +398,7 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
     private void synchronizeFlow(final FlowController controller, final DataFlow existingFlow, final DataFlow proposedFlow, final AffectedComponentSet affectedComponentSet) {
         // attempt to sync controller with proposed flow
         try {
+        	 logger.error("ResponseFlow3= {}", new String(proposedFlow.getFlow(), StandardCharsets.UTF_8));
             final VersionedDataflow versionedFlow = proposedFlow.getVersionedDataflow();
 
             final PropertyEncryptor encryptor = controller.getEncryptor();
@@ -423,7 +425,8 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
                 final ComponentIdGenerator componentIdGenerator = (proposedId, instanceId, destinationGroupId) -> instanceId;
 
                 // Use a Versioned Component State Lookup that will check to see if the component is scheduled to start upon FlowController initialization.
-                // Otherwise, fallback to the identity lookup (i.e., use whatever is set on the component itself).
+                // Otherwise, fallback to the identity lookup (i.e., use whatever is set on the component itself).////
+              ///////////////////////  
                 final VersionedComponentStateLookup stateLookup = controller.createVersionedComponentStateLookup(VersionedComponentStateLookup.IDENTITY_LOOKUP);
 
                 final ComponentScheduler componentScheduler = new FlowControllerComponentScheduler(controller, stateLookup);
@@ -470,6 +473,7 @@ public class VersionedFlowSynchronizer implements FlowSynchronizer {
 
             removeMissingParameterContexts(controller, versionedFlow);
             removeMissingRegistryClients(controller.getFlowManager(), versionedFlow);
+            logger.error("ResponseFlow4= {}", new String(proposedFlow.getFlow(), StandardCharsets.UTF_8));
         } catch (final Exception ex) {
             throw new FlowSynchronizationException(ex);
         }

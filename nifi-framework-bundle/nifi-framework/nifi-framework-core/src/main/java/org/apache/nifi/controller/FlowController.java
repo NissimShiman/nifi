@@ -225,6 +225,7 @@ import java.io.OutputStream;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1096,11 +1097,14 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
     private void notifyComponentsConfigurationRestored() {
         for (final ProcessorNode procNode : flowManager.getRootGroup().findAllProcessors()) {
             final Processor processor = procNode.getProcessor();
+            LOG.error("notifyCompCongRestored1 proc getDesired and Sechduled State(): " + processor.getIdentifier() + "  " + procNode.getDesiredState()   +  procNode.getScheduledState());
             try (final NarCloseable ignored = NarCloseable.withComponentNarLoader(extensionManager, processor.getClass(), processor.getIdentifier())) {
                 final StandardProcessContext processContext = new StandardProcessContext(procNode, controllerServiceProvider,
                         getStateManagerProvider().getStateManager(processor.getIdentifier()), () -> false, this);
                 ReflectionUtils.quietlyInvokeMethodsWithAnnotation(OnConfigurationRestored.class, processor, processContext);
             }
+            LOG.error("notifyCompCongRestored2 proc getDesired and Sechduled State(): " + processor.getIdentifier() + "  " + procNode.getDesiredState()   +  procNode.getScheduledState());
+
         }
 
         for (final ControllerServiceNode serviceNode : flowManager.getAllControllerServices()) {
@@ -1145,6 +1149,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
      *
      * @param startDelayedComponents true if start
      */
+/////    
     public void onFlowInitialized(final boolean startDelayedComponents) {
         writeLock.lock();
         try {
@@ -1202,7 +1207,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
             scheduleBackgroundFlowAnalysis(rootProcessGroupSupplier);
             // Trigger component validation to occur every 5 seconds.
             validationThreadPool.scheduleWithFixedDelay(new TriggerValidationTask(flowManager, validationTrigger), 5, 5, TimeUnit.SECONDS);
-
+// "running" if from here to finally is commnented out
             if (startDelayedComponents) {
                 LOG.info("Starting {} Stateless Process Groups", startGroupsAfterInitialization.size());
                 for (final ProcessGroup group : startGroupsAfterInitialization) {
@@ -1263,7 +1268,9 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
                         LOG.error("Unable to start {}", connectable, t);
                     }
                 }
-
+                //*************************************************************
+// this next line - if commented out will have processor remain RUNNING in flow.json
+                //****************************************************************
                 startConnectablesAfterInitialization.clear();
                 startRemoteGroupPortsAfterInitialization.clear();
             }
@@ -1688,6 +1695,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
         return new ScheduledStateLookup() {
             @Override
             public ScheduledState getScheduledState(final ProcessorNode procNode) {
+            	// if emptied then with end up saying ENABLED
                 if (startConnectablesAfterInitialization.contains(procNode)) {
                     return ScheduledState.RUNNING;
                 }
@@ -1799,6 +1807,7 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
         writeLock.lock();
         try {
             LOG.debug("Synchronizing controller with proposed flow");
+            LOG.error("ResponseFlow2= {}", new String(dataFlow.getFlow(), StandardCharsets.UTF_8));
 
             try {
                 synchronizer.sync(this, dataFlow, flowService, bundleUpdateStrategy);
@@ -1818,6 +1827,12 @@ public class FlowController implements ReportingTaskProvider, FlowAnalysisRulePr
 
             flowSynchronized.set(true);
             LOG.info("Successfully synchronized controller with proposed flow. Flow contains the following number of components: {}", flowManager.getComponentCounts());
+            ProcessorNode pNode = flowManager.getProcessorNode("7d5cfbb1-0196-1000-0000-00007bfbc9d3");
+            if (pNode != null) {
+            	LOG.error("processor1 state" + pNode.getScheduledState());
+            	LOG.error("processor1 physicalState" + pNode.getPhysicalScheduledState());
+            	LOG.error("processor1 desiredState" + pNode.getDesiredState());
+            }
         } finally {
             writeLock.unlock("synchronize");
         }

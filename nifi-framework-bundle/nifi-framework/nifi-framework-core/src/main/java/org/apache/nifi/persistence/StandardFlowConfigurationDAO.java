@@ -88,8 +88,9 @@ public final class StandardFlowConfigurationDAO implements FlowConfigurationDAO 
             throws IOException, FlowSerializationException, FlowSynchronizationException, UninheritableFlowException, MissingBundleException {
 
         final FlowSynchronizer standardFlowSynchronizer = new VersionedFlowSynchronizer(extensionManager, nifiProperties.getFlowConfigurationFile(), archiveManager);
+        LOG.error("inside load1");
         controller.synchronize(standardFlowSynchronizer, dataFlow, flowService, bundleUpdateStrategy);
-
+        LOG.error("inside load2");
         if (VersionedFlowSynchronizer.isFlowEmpty(dataFlow)) {
             // If the dataflow is empty, we want to save it. We do this because when we start up a brand new cluster with no
             // dataflow, we need to ensure that the flow is consistent across all nodes in the cluster and that upon restart

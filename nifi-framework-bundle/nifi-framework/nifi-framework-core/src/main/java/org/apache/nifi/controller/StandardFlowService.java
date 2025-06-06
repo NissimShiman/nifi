@@ -83,6 +83,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -462,6 +463,7 @@ public class StandardFlowService implements FlowService, ProtocolHandler {
 
                 } else {
                     try {
+                    	logger.error("loading - but not based on cluster reconection request");
                         loadFromConnectionResponse(response);
                         dao.save(controller, true);
                     } catch (final Exception e) {
@@ -756,7 +758,7 @@ public class StandardFlowService implements FlowService, ProtocolHandler {
         actualProposedFlow = new StandardDataFlow(flowBytes, null, authorizerFingerprint, missingComponents);
 
         // load the flow
-        logger.debug("Loading proposed flow into FlowController");
+        logger.error("Loading proposed flow into FlowController");
         dao.load(controller, actualProposedFlow, this, bundleUpdateStrategy);
 
         final ProcessGroup rootGroup = controller.getFlowManager().getRootGroup();
@@ -897,20 +899,23 @@ public class StandardFlowService implements FlowService, ProtocolHandler {
 
             // get the dataflow from the response
             final DataFlow dataFlow = response.getDataFlow();
-            if (logger.isTraceEnabled()) {
-                logger.trace("ResponseFlow = {}", new String(dataFlow.getFlow(), StandardCharsets.UTF_8));
+            if (logger.isErrorEnabled()) {
+                logger.error("ResponseFlow1= {}", new String(dataFlow.getFlow(), StandardCharsets.UTF_8));
             }
 
-            logger.info("Setting Flow Controller's Node ID: {}", nodeId);
+            logger.error("Setting Flow Controller's Node ID: {}", nodeId);
             nodeId = response.getNodeIdentifier();
             controller.setNodeId(nodeId);
 
             // sync NARs before loading flow, otherwise components could be ghosted and fail to join the cluster
+            logger.error("b4 syncWithClusterCoordinator");
             narManager.syncWithClusterCoordinator();
-
+            logger.error("after syncWithClusterCoordinator");
+            
             // load new controller state
             loadFromBytes(dataFlow, true, BundleUpdateStrategy.USE_SPECIFIED_OR_COMPATIBLE_OR_GHOST);
-
+            logger.error("after loadFromBytes - (still running)");
+            dao.save(controller, true);
             // sync assets after loading the flow so that parameter contexts exist first
             assetSynchronizer.synchronize();
 
@@ -929,13 +934,19 @@ public class StandardFlowService implements FlowService, ProtocolHandler {
 
             // Initialize the controller after the flow is loaded so we don't take any actions on repos until everything is good
             initializeController();
-
+            // still "running" if flow saved to disk here
+/////
             // start the processors as indicated by the dataflow
+            logger.error("autoResumeState on startup: " + autoResumeState);
+//            controller.onFlowInitialized(true);  - if this is used instead of next line, GetFlowFile processor will remain started
             controller.onFlowInitialized(autoResumeState);
+            // would be "enabled" if saved to disk here
 
             loadSnippets(dataFlow.getSnippets());
-
+            logger.error("ResponseFlow10= {}", new String(dataFlow.getFlow(), StandardCharsets.UTF_8));
+//            Thread.sleep(30000);
             controller.startHeartbeating();
+            
 
         } catch (final UninheritableFlowException ufe) {
             throw new UninheritableFlowException(CONNECTION_EXCEPTION_MSG_PREFIX, ufe);
