@@ -27,7 +27,21 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-avro-processors</module>
         <module>nifi-avro-nar</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>avroProcessor</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>  
+            <modules>
+                <module>nifi-avro-processors</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>noAvroProcessor</id>
+        </profile>
+    </profiles>
 </project>
